@@ -20,14 +20,13 @@ Dots represent runs; lines represent UTC daily medians. Incomplete shard sets an
 
 ## Regular TSV measurements
 
-- **Total runtime:** the Linux job's start-to-finish duration, including setup and cleanup, excluding queue time. The `Validate Impacted Specs` step is plotted separately.
+- **Validation runtime:** only the Linux job's `Validate Impacted Specs` step. Excludes checkout, Node/dependency setup, queue time, and post-job cleanup. Per-project Git cleanup performed inside the validation step remains included.
 - **Specs validated:** distinct TypeSpec projects actually entering validation, counted from `Running TypeSpecValidation on folder:` log messages. The `Checking N TypeSpec folders:` header cross-checks the count. Selected but suppressed projects are not counted. This is not a count of emitted Swagger files or compiler invocations.
 - **Validation time per spec:** validation step duration divided by validated project count.
-- **Total time per spec:** total job duration divided by validated project count.
 
-Zero-spec runs remain visible in runtime and count charts but have no per-spec average. Missing, expired, or unrecognized logs have an explicitly unavailable count, never an assumed zero. Runs with unavailable counts are excluded from averages and count totals; their runtimes remain visible.
+Zero-spec runs remain visible in validation runtime and count charts but have no per-spec average. Missing, expired, or unrecognized logs have an explicitly unavailable count, never an assumed zero. Runs with unavailable counts are excluded from averages and count totals; their available validation timings remain visible. Missing validation durations are never replaced with total job time.
 
-Per-spec dots are individual run averages. Daily lines and summary averages divide the sum of runtime by the sum of validated specs across eligible nonzero-spec runs. They are **not** unweighted averages of per-run averages. Runtime/count chart lines use daily medians. The total spec count counts executions across runs, not unique projects in the repository.
+Per-spec dots are individual run averages. Daily lines and summary averages divide the sum of validation time by the sum of validated specs across eligible nonzero-spec runs. They are **not** unweighted averages of per-run averages. Runtime/count chart lines use daily medians. The total spec count counts executions across runs, not unique projects in the repository. Raw job/setup timings remain in the downloadable dataset for investigation but are not displayed on the regular dashboard.
 
 PR workloads and tooling revisions differ, so normalized timing is useful context, not a controlled benchmark. Failed runs may validate only part of their selected workload.
 

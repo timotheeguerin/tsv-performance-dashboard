@@ -19,9 +19,8 @@ function renderRuns(runs) {
     const details = element("details");
     const summary = element("summary", undefined, "regular-summary");
     summary.append(element("span", `${timestamp(run.createdAt)} UTC`, "run-date"), element("span", run.title, "run-title"));
-    summary.append(valueCell(count(run.specCount), "specs"), valueCell(duration(run.total), "total runtime"));
-    const averages = valueCell(`${specDuration(run.validationPerSpec)} / ${specDuration(run.totalPerSpec)}`, "validation / total per spec");
-    summary.append(averages);
+    summary.append(valueCell(count(run.specCount), "specs"), valueCell(duration(run.validation), "validation time"));
+    summary.append(valueCell(specDuration(run.validationPerSpec), "validation / spec"));
     details.append(summary);
     const body = element("div", undefined, "run-details");
     const meta = element("div", undefined, "run-meta");
@@ -35,10 +34,10 @@ function renderRuns(runs) {
     body.append(meta);
     const table = element("table");
     const heading = element("tr");
-    for (const label of ["Total job", "Validation step", "Setup", "Validation / spec", "Total / spec"]) heading.append(element("th", label));
+    for (const label of ["Validation step", "Validation / spec"]) heading.append(element("th", label));
     const thead = element("thead"); thead.append(heading); table.append(thead);
     const row = element("tr");
-    for (const value of [duration(run.total), duration(run.validation), duration(run.jobs[0].setup), specDuration(run.validationPerSpec), specDuration(run.totalPerSpec)]) row.append(element("td", value));
+    for (const value of [duration(run.validation), specDuration(run.validationPerSpec)]) row.append(element("td", value));
     const tbody = element("tbody"); tbody.append(row); table.append(tbody);
     const scroll = element("div", undefined, "table-scroll"); scroll.append(table); body.append(scroll);
     details.append(body);
@@ -51,23 +50,22 @@ function renderRuns(runs) {
 function render() {
   if (!dataset) return;
   const runs = selectRegularRuns(dataset.runs, filterOptions(fields));
-  $("total-median").textContent = duration(median(runs.map((run) => run.total).filter(Number.isFinite)));
+  $("validation-median").textContent = duration(median(runs.map((run) => run.validation).filter(Number.isFinite)));
   $("validation-average").textContent = specDuration(averagePerSpec(runs, "validation"));
-  $("total-average").textContent = specDuration(averagePerSpec(runs, "total"));
   $("run-count").textContent = `${runs.length.toLocaleString()} ${runs.length === 1 ? "run" : "runs"} in view`;
   const known = runs.filter((run) => run.specCount !== null);
   $("spec-count").textContent = known.length ? count(known.reduce((sum, run) => sum + run.specCount, 0)) : "\u2014";
   $("zero-count").textContent = `${runs.filter((run) => run.specCount === 0).length.toLocaleString()} zero-spec runs \u00b7 not unique specs`;
   const missing = runs.length - known.length;
   $("count-notice").hidden = missing === 0;
-  $("count-notice").textContent = `${missing} ${missing === 1 ? "run has" : "runs have"} unavailable project counts. These runtimes are shown, but excluded from per-spec averages and spec-count totals. Expand a run for the reason.`;
-  drawChart($("total-chart"), runs, {
-    title: "Total job and validation runtime",
-    series: [{ key: "total", label: "Total job", color: "linux" }, { key: "validation", label: "Validation", color: "windows" }],
+  $("count-notice").textContent = `${missing} ${missing === 1 ? "run has" : "runs have"} unavailable project counts. Available validation timings are shown, but excluded from per-spec averages and spec-count totals. Expand a run for the reason.`;
+  drawChart($("validation-chart"), runs, {
+    title: "Validation step runtime",
+    series: [{ key: "validation", label: "Validation", color: "linux" }],
   });
   drawChart($("average-chart"), runs, {
-    title: "Average runtime per validated spec", format: specDuration,
-    series: [{ key: "validationPerSpec", label: "Validation / spec", color: "linux", weightKey: "specCount" }, { key: "totalPerSpec", label: "Total / spec", color: "windows", weightKey: "specCount" }],
+    title: "Average validation time per spec", format: specDuration,
+    series: [{ key: "validationPerSpec", label: "Validation / spec", color: "linux", weightKey: "specCount" }],
   });
   drawChart($("count-chart"), runs, {
     title: "Specs validated per run", count: true, format: count,

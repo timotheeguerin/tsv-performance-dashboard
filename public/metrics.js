@@ -106,8 +106,7 @@ export function selectRegularRuns(runs, { days, outcome, workload }, now = Date.
       const specCount = run.specs.status === "available" ? run.specs.validated : null;
       return {
         ...run, selectedConclusion: job.conclusion,
-        total: job.elapsed, validation: job.validation, specCount,
-        totalPerSpec: perSpec(job.elapsed, specCount),
+        validation: job.validation, specCount,
         validationPerSpec: perSpec(job.validation, specCount),
       };
     })

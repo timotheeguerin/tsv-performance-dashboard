@@ -19,19 +19,20 @@ const fixture = {
   ],
 };
 
-test("regular dashboard shows total, both averages, and actual validated specs", async ({ page }) => {
+test("regular dashboard shows only validation timing, its average, and actual validated specs", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/data/regular.json", (route) => route.fulfill({ json: fixture }));
   await page.goto("/regular.html");
   await expect(page.locator("#run-count")).toHaveText("4 runs in view");
-  await expect(page.locator("#total-median")).toHaveText("4m 00s");
+  await expect(page.locator("#validation-median")).toHaveText("1m 00s");
   await expect(page.locator("#validation-average")).toHaveText("40.0s");
-  await expect(page.locator("#total-average")).toHaveText("2m 10s");
+  await expect(page.locator("#total-median, #total-average, #total-chart")).toHaveCount(0);
+  await expect(page.locator(".cards .card")).toHaveCount(3);
   await expect(page.locator("#spec-count")).toHaveText("6");
   await expect(page.locator("#count-notice")).toContainText("1 run has unavailable");
-  await expect(page.locator("#total-chart circle")).toHaveCount(8);
-  await expect(page.locator("#average-chart circle")).toHaveCount(4);
+  await expect(page.locator("#validation-chart circle")).toHaveCount(4);
+  await expect(page.locator("#average-chart circle")).toHaveCount(2);
   await expect(page.locator("#count-chart circle")).toHaveCount(3);
   await page.selectOption("#workload", "zero");
   await expect(page.locator("#run-count")).toHaveText("1 run in view");
@@ -43,15 +44,44 @@ test("regular dashboard shows total, both averages, and actual validated specs",
   await page.selectOption("#workload", "with-specs");
   await expect(page.locator("#run-count")).toHaveText("2 runs in view");
   await page.locator("#runs summary").first().click();
-  await expect(page.locator("#runs details").first().locator("table")).toContainText("Validation / spec");
+  await expect(page.locator("#runs details").first().locator("th")).toHaveText(["Validation step", "Validation / spec"]);
+  await expect(page.locator("#runs details").first().locator("td")).toHaveText(["3m 00s", "45.0s"]);
+  await expect(page.locator("#runs summary").first()).not.toContainText("total");
   expect(errors).toEqual([]);
+});
+
+test("changing setup and job duration does not move validation charts or summaries", async ({ page }) => {
+  let slowSetup = false;
+  await page.route("**/data/regular.json", (route) => route.fulfill({
+    json: { ...fixture, runs: [{ ...base, jobs: [{ ...base.jobs[0], elapsed: slowSetup ? 7200 : 180, setup: slowSetup ? 7000 : 90 }] }] },
+  }));
+  await page.goto("/regular.html");
+  await expect(page.locator("#validation-median")).toHaveText("1m 00s");
+  await expect(page.locator("#validation-average")).toHaveText("30.0s");
+  const before = await page.locator("#validation-chart svg, #average-chart svg").evaluateAll((charts) => charts.map((chart) => chart.outerHTML));
+  slowSetup = true;
+  await page.reload();
+  await expect(page.locator("#validation-median")).toHaveText("1m 00s");
+  await expect(page.locator("#validation-average")).toHaveText("30.0s");
+  expect(await page.locator("#validation-chart svg, #average-chart svg").evaluateAll((charts) => charts.map((chart) => chart.outerHTML))).toEqual(before);
+});
+
+test("missing validation time stays unavailable despite a completed job", async ({ page }) => {
+  await page.route("**/data/regular.json", (route) => route.fulfill({
+    json: { ...fixture, runs: [{ ...base, jobs: [{ ...base.jobs[0], validation: null }] }] },
+  }));
+  await page.goto("/regular.html");
+  await expect(page.locator("#validation-median")).toHaveText("\u2014");
+  await expect(page.locator("#validation-average")).toHaveText("\u2014");
+  await expect(page.locator("#validation-chart circle, #average-chart circle")).toHaveCount(0);
+  await expect(page.locator("#spec-count")).toHaveText("2");
 });
 
 test("regular mobile layout and navigation to main-only TSV-All", async ({ page }) => {
   await page.route("**/data/regular.json", (route) => route.fulfill({ json: fixture }));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/regular.html");
-  await expect(page.locator("#total-chart svg")).toBeVisible();
+  await expect(page.locator("#validation-chart svg")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByRole("navigation", { name: "Dashboards" }).getByRole("link", { name: "TSV-All", exact: true })).toHaveAttribute("href", "./index.html");
 });

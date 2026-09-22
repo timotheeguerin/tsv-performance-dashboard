@@ -38,7 +38,6 @@ select { width: 100%; border: 1px solid var(--border); border-radius: 8px; paddi
 button, select, a, summary { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
 .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 24px; }
-.cards-four { grid-template-columns: repeat(4, 1fr); }
 .card, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 12px; }
 .card { padding: 21px 24px; }
 .card p { font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--muted); }
@@ -75,7 +74,7 @@ button, select, a, summary { -webkit-tap-highlight-color: transparent; }
 .footnote { margin-top: 16px; }
 details { border-top: 1px solid var(--border); }
 summary { cursor: pointer; padding: 14px 0; display: grid; grid-template-columns: 135px minmax(0, 1fr) 110px 110px; align-items: center; gap: 16px; list-style: none; }
-.regular-summary { grid-template-columns: 135px minmax(0, 1fr) 65px 100px 170px; }
+.regular-summary { grid-template-columns: 135px minmax(0, 1fr) 65px 100px 120px; }
 summary::-webkit-details-marker { display: none; }
 summary:hover { background: var(--soft); }
 .run-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -107,7 +106,6 @@ footer p + p { margin-top: 4px; }
   nav { padding: 0; font-size: 12px; }
   .filters { grid-template-columns: 1fr 1fr; gap: 12px; }
   .cards { gap: 8px; }
-  .cards-four { grid-template-columns: repeat(2, 1fr); }
   .card { padding: 14px 10px; }
   .card p { font-size: 9px; letter-spacing: .3px; }
   .card strong { font-size: 22px; }

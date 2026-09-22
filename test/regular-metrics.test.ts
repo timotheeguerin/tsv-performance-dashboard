@@ -12,21 +12,34 @@ const run = (overrides = {}) => ({
 });
 const options = { days: "all", outcome: "success", workload: "all" };
 
-test("regular totals and both per-spec averages use the measured validated count", () => {
+test("regular timing uses only the validation step and measured validated count", () => {
   const selected = selectRegularRuns([run()], options)[0];
-  assert.equal(selected.total, 180);
+  assert.equal(selected.validation, 60);
   assert.equal(selected.specCount, 2);
-  assert.equal(selected.totalPerSpec, 90);
   assert.equal(selected.validationPerSpec, 30);
+  assert.equal("total" in selected, false);
+  assert.equal("totalPerSpec" in selected, false);
+});
+test("setup and job duration variations do not change validation measurements", () => {
+  const runs = [run(), run({ jobs: [{ ...run().jobs[0], elapsed: 3600, setup: 3000 }] })];
+  const selected = selectRegularRuns(runs, options);
+  assert.deepEqual(selected.map((run) => [run.validation, run.validationPerSpec]), [[60, 30], [60, 30]]);
+  assert.equal(averagePerSpec(selected, "validation"), 30);
+});
+test("missing validation timing is not replaced by job time", () => {
+  const selected = selectRegularRuns([run({ jobs: [{ ...run().jobs[0], validation: null }] })], options)[0];
+  assert.equal(selected.validation, null);
+  assert.equal(selected.validationPerSpec, null);
+  assert.equal(averagePerSpec([selected], "validation"), null);
 });
 test("zero or unknown specs never turn into a zero or infinite per-spec runtime", () => {
   for (const count of [0, null, undefined, -1]) assert.equal(perSpec(60, count), null);
   assert.equal(perSpec(null, 2), null);
   assert.equal(perSpec(0, 2), 0);
   const selected = selectRegularRuns([run({ specs: { status: "logs-unavailable", validated: null } })], options)[0];
-  assert.equal(selected.total, 180);
+  assert.equal(selected.validation, 60);
   assert.equal(selected.specCount, null);
-  assert.equal(selected.totalPerSpec, null);
+  assert.equal(selected.validationPerSpec, null);
 });
 test("base branch, not PR head branch, determines the main-only scope", () => {
   const runs = [run(), run({ branch: "main", baseBranch: "typespec-next" }), run({ baseBranch: null }), run({ event: "push" }), run({ jobs: [] })];
