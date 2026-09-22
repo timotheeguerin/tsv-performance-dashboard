@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="description" content="Historical Linux and Windows runtime trends for Azure REST API specs TypeSpec Validation - All.">
+    <title>TSV runtime tracker</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230969da'/%3E%3Cpath d='M6 22l7-9 6 5 7-12' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">AZURE REST API SPECS <span>/</span> ENGINEERING HEALTH</p>
+          <h1>TSV runtime tracker<span class="dot">.</span></h1>
+          <p class="subtitle">TypeSpec Validation - All, measured over time.</p>
+        </div>
+        <nav aria-label="Source links">
+          <a href="https://github.com/Azure/azure-rest-api-specs/actions/workflows/typespec-validation-all.yaml">Workflow <span aria-hidden="true">&#8599;</span></a>
+          <a href="https://github.com/timotheeguerin/tsv-performance-dashboard">Source <span aria-hidden="true">&#8599;</span></a>
+        </nav>
+      </header>
+      <div id="status" role="status" class="status">Loading workflow history...</div>
+      <section class="filters" aria-label="Chart filters">
+        <label>Checkout / trigger
+          <select id="cohort">
+            <option value="push">Main / push</option>
+            <option value="schedule">Main / scheduled</option>
+            <option value="next">TypeSpec next / scheduled</option>
+          </select>
+        </label>
+        <label>Time range
+          <select id="days">
+            <option value="7">Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="all">All history</option>
+          </select>
+        </label>
+        <label>Measure
+          <select id="metric">
+            <option value="elapsed">Completion time</option>
+            <option value="validation">Total validation work</option>
+            <option value="slowest">Slowest validation shard</option>
+          </select>
+        </label>
+        <label>Outcome
+          <select id="outcome">
+            <option value="success">Successful checkouts</option>
+            <option value="all">All completed checkouts</option>
+          </select>
+        </label>
+      </section>
+      <section class="cards" aria-label="Summary">
+        <article class="card"><p><span class="swatch linux"></span> LINUX MEDIAN</p><strong id="linux-median">--</strong><small id="linux-count">Across selected runs</small></article>
+        <article class="card"><p><span class="swatch windows"></span> WINDOWS MEDIAN</p><strong id="windows-median">--</strong><small id="windows-count">Across selected runs</small></article>
+        <article class="card"><p>RUNS IN VIEW</p><strong id="run-count">--</strong><small id="date-range">Waiting for history</small></article>
+      </section>
+      <section class="panel chart-panel" aria-labelledby="chart-title">
+        <div class="panel-heading">
+          <div><h2 id="chart-title">Completion time</h2><p id="metric-description"></p></div>
+          <div class="legend"><span><i class="swatch linux"></i> Linux</span><span><i class="swatch windows"></i> Windows</span></div>
+        </div>
+        <div id="chart" aria-live="polite"></div>
+        <div class="chart-caption"><span>Dots: individual runs. Lines: daily medians. Click a dot to open its run.</span><span>All dates UTC</span></div>
+      </section>
+      <section class="panel" id="comparison-panel" aria-labelledby="comparison-title">
+        <div class="panel-heading"><div><h2 id="comparison-title">Around the direct-launch merge</h2><p>Nearest 7 successful main pushes before and first 7 after September 22, 12:01 UTC. Medians, within the selected time range.</p></div><a href="https://github.com/Azure/azure-rest-api-specs/pull/46521">PR 46521 &#8599;</a></div>
+        <div id="comparison" class="comparison"></div>
+        <p class="footnote">Observed timings, not a controlled benchmark. Workload changes and hosted-runner variability affect these comparisons.</p>
+      </section>
+      <section class="panel" aria-labelledby="runs-title">
+        <div class="panel-heading"><div><h2 id="runs-title">Recent runs</h2><p>Expand a run for per-shard validation and setup times.</p></div><a id="download" href="./data/workflow.json" download="tsv-workflow-history.json">Download data &#8595;</a></div>
+        <div id="runs"></div>
+        <button id="more" type="button" hidden>Show more runs</button>
+      </section>
+      <footer>
+        <p>Refreshed hourly from the GitHub Actions API. PR runs are intentionally excluded.</p>
+        <p>Scheduled runs use two checkouts. Their overall workflow duration can be dominated by <code>typespec-next</code>, even when main finishes sooner.</p>
+      </footer>
+    </main>
+    <noscript><p class="status error">JavaScript is required to display the dashboard. <a href="./data/workflow.json">Download the raw data.</a></p></noscript>
+  </body>
+</html>

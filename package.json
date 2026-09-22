@@ -1,0 +1,16 @@
+{
+  "name": "tsv-performance-dashboard",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "collect": "node scripts/collect.ts",
+    "test": "node --test test/*.test.ts",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}
