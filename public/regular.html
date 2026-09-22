@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="description" content="Regular TypeSpec validation runtimes and per-project performance for pull requests targeting main.">
+    <title>Regular TSV runtime tracker</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230969da'/%3E%3Cpath d='M6 22l7-9 6 5 7-12' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./regular.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">AZURE REST API SPECS <span>/</span> ENGINEERING HEALTH</p>
+          <h1>Regular TSV tracker<span class="dot">.</span></h1>
+          <p class="subtitle">Impacted-spec validation. Pull requests targeting main only.</p>
+        </div>
+        <nav aria-label="Source links">
+          <a href="https://github.com/Azure/azure-rest-api-specs/actions/workflows/typespec-validation.yaml">Workflow &#8599;</a>
+          <a href="https://github.com/timotheeguerin/tsv-performance-dashboard">Source &#8599;</a>
+        </nav>
+      </header>
+      <nav class="dashboard-tabs" aria-label="Dashboards">
+        <a href="./index.html">TSV-All</a>
+        <a href="./regular.html" aria-current="page">Regular TSV</a>
+      </nav>
+      <div id="status" role="status" class="status">Loading workflow history...</div>
+      <section class="filters" aria-label="Chart filters">
+        <label>Time range
+          <select id="days">
+            <option value="7">Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="all">All history</option>
+          </select>
+        </label>
+        <label>Workload
+          <select id="workload">
+            <option value="all">All runs, including zero specs</option>
+            <option value="with-specs">At least one validated spec</option>
+            <option value="zero">Zero validated specs</option>
+          </select>
+        </label>
+        <label>Outcome
+          <select id="outcome">
+            <option value="success">Successful runs</option>
+            <option value="all">All completed runs</option>
+          </select>
+        </label>
+      </section>
+      <section class="cards cards-four" aria-label="Summary">
+        <article class="card"><p>MEDIAN TOTAL RUNTIME</p><strong id="total-median">--</strong><small id="run-count">Across selected runs</small></article>
+        <article class="card"><p>AVG VALIDATION / SPEC</p><strong id="validation-average">--</strong><small>Validation time / validated specs</small></article>
+        <article class="card"><p>AVG TOTAL / SPEC</p><strong id="total-average">--</strong><small>Job time / validated specs</small></article>
+        <article class="card"><p>SPECS VALIDATED</p><strong id="spec-count">--</strong><small id="zero-count">Project executions across runs</small></article>
+      </section>
+      <div id="count-notice" class="notice" role="status" hidden></div>
+      <section class="panel chart-panel" aria-labelledby="total-title">
+        <div class="panel-heading">
+          <div><h2 id="total-title">Total runtime</h2><p>Linux job start to finish, including setup and cleanup, excluding queue time. Validation step shown separately.</p></div>
+          <div class="legend"><span><i class="swatch linux"></i> Total job</span><span><i class="swatch windows"></i> Validation</span></div>
+        </div>
+        <div id="total-chart" class="chart" aria-live="polite"></div>
+        <div class="chart-caption"><span>Dots: individual runs. Lines: daily medians. Click a dot to open its run.</span><span>All dates UTC</span></div>
+      </section>
+      <section class="panel chart-panel" aria-labelledby="average-title">
+        <div class="panel-heading">
+          <div><h2 id="average-title">Average runtime per spec</h2><p>Both averages divide by projects actually validated. Zero-spec and unknown-count runs are excluded, not counted as zero time.</p></div>
+          <div class="legend"><span><i class="swatch linux"></i> Validation / spec</span><span><i class="swatch windows"></i> Total / spec</span></div>
+        </div>
+        <div id="average-chart" class="chart" aria-live="polite"></div>
+        <div class="chart-caption"><span>Dots: per-run averages. Lines and summary averages: summed runtime / summed specs, not an average of averages.</span><span>All dates UTC</span></div>
+      </section>
+      <section class="panel chart-panel" aria-labelledby="count-title">
+        <div class="panel-heading">
+          <div><h2 id="count-title">Specs validated per run</h2><p>Actual TypeSpec project validations from the job log. Suppressed projects are excluded. These are projects, not generated Swagger files.</p></div>
+          <div class="legend"><span><i class="swatch count"></i> Validated specs</span></div>
+        </div>
+        <div id="count-chart" class="chart" aria-live="polite"></div>
+        <div class="chart-caption"><span>Dots: individual runs. Lines: daily medians. A project validated on multiple runs is counted once per run.</span><span>All dates UTC</span></div>
+      </section>
+      <section class="panel" aria-labelledby="runs-title">
+        <div class="panel-heading"><div><h2 id="runs-title">Recent runs</h2><p>Expand a run for both averages, selected versus validated projects, and source links.</p></div><a href="./data/regular.json" download="regular-tsv-history.json">Download data &#8595;</a></div>
+        <div id="runs"></div>
+        <button id="more" type="button" hidden>Show more runs</button>
+      </section>
+      <footer>
+        <p>Refreshed hourly from public GitHub Actions metadata and logs. Only PRs with a confirmed main target are included.</p>
+        <p>Each run contributes once, using its latest attempt. PRs can use different compiler/tooling revisions; per-spec averages also vary with project size.</p>
+      </footer>
+    </main>
+    <noscript><p class="status error">JavaScript is required. <a href="./data/regular.json">Download the raw data.</a></p></noscript>
+  </body>
+</html>

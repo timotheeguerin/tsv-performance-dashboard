@@ -1,50 +1,18 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { api, listJobs, repository, runInfo, seconds, stepSeconds, type ApiJob, type ApiRun } from "./github.ts";
+import { collectRegular } from "./collect-regular.ts";
 
-const repository = "Azure/azure-rest-api-specs";
+export { seconds } from "./github.ts";
+
 const workflow = "typespec-validation-all.yaml";
 const output = fileURLToPath(new URL("../public/data/workflow.json", import.meta.url));
 const day = 86_400_000;
 
-type ApiStep = {
-  name: string;
-  status: string;
-  conclusion: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-};
-type ApiJob = ApiStep & { id: number; html_url: string; steps: ApiStep[] };
-type ApiRun = {
-  id: number;
-  run_attempt: number;
-  display_title: string;
-  html_url: string;
-  event: string;
-  head_branch: string;
-  head_sha: string;
-  created_at: string;
-  run_started_at: string;
-  updated_at: string;
-  status: string;
-  conclusion: string | null;
-};
-
-export function seconds(start: string | null, end: string | null): number | null {
-  if (!start || !end) return null;
-  const duration = (Date.parse(end) - Date.parse(start)) / 1000;
-  return Number.isFinite(duration) && duration >= 0 ? duration : null;
-}
-
 export function summarizeJob(job: ApiJob) {
   const matrix = /^TSV \((default|next), (ubuntu|windows), (\d+), (\d+)\)$/.exec(job.name);
   if (!matrix) throw new Error(`Unrecognized TSV matrix job: ${job.name} (${job.id})`);
-  const stepDuration = (name: string) => {
-    const step = job.steps.find((step) => step.name === name);
-    return step?.status === "completed" && step.conclusion !== "skipped"
-      ? seconds(step.started_at, step.completed_at)
-      : null;
-  };
   return {
     id: job.id,
     url: job.html_url,
@@ -57,8 +25,8 @@ export function summarizeJob(job: ApiJob) {
     startedAt: job.started_at,
     completedAt: job.completed_at,
     elapsed: seconds(job.started_at, job.completed_at),
-    validation: stepDuration("Validate All Specs"),
-    setup: stepDuration("Setup Node and install deps"),
+    validation: stepSeconds(job, "Validate All Specs"),
+    setup: stepSeconds(job, "Setup Node and install deps"),
   };
 }
 
@@ -74,18 +42,7 @@ type Dataset = {
 
 export function summarizeRun(run: ApiRun, jobs: ApiJob[]) {
   return {
-    id: run.id,
-    attempt: run.run_attempt,
-    title: run.display_title,
-    url: run.html_url,
-    event: run.event,
-    branch: run.head_branch,
-    sha: run.head_sha,
-    createdAt: run.created_at,
-    startedAt: run.run_started_at,
-    updatedAt: run.updated_at,
-    status: run.status,
-    conclusion: run.conclusion,
+    ...runInfo(run),
     jobs: jobs.map(summarizeJob),
   };
 }
@@ -114,32 +71,9 @@ export function dateWindows(start: Date, end: Date) {
   return windows;
 }
 
-async function api<T>(path: string, attempt = 0): Promise<T> {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) throw new Error("GITHUB_TOKEN is required. Use a GitHub Actions token or `gh auth token`.");
-  const response = await fetch(`https://api.github.com/repos/${repository}/${path}`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-    signal: AbortSignal.timeout(60_000),
-  });
-  if (!response.ok) {
-    if ((response.status === 429 || response.status >= 500) && attempt < 3) {
-      const delay = Math.min(Number(response.headers.get("retry-after") ?? 2 ** (attempt + 1)), 60);
-      console.warn(`GitHub returned ${response.status}; retrying in ${delay}s: ${path}`);
-      await new Promise((resolve) => setTimeout(resolve, delay * 1000));
-      return api<T>(path, attempt + 1);
-    }
-    throw new Error(`GitHub ${response.status} for ${path}: ${await response.text()}`);
-  }
-  return await response.json() as T;
-}
-
 async function listRuns(start: string, end: string) {
   const runs: ApiRun[] = [];
-  for (const event of ["push", "schedule"]) {
+  for (const event of ["push"]) {
     for (let page = 1; ; page++) {
       const query = new URLSearchParams({
         event, branch: "main", created: `${start}..${end}`, per_page: "100", page: String(page),
@@ -155,17 +89,6 @@ async function listRuns(start: string, end: string) {
     }
   }
   return runs;
-}
-
-async function listJobs(run: ApiRun) {
-  const jobs: ApiJob[] = [];
-  for (let page = 1; ; page++) {
-    const result = await api<{ jobs: ApiJob[] }>(
-      `actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100&page=${page}`,
-    );
-    jobs.push(...result.jobs);
-    if (result.jobs.length < 100) return jobs;
-  }
 }
 
 async function readPrevious(): Promise<Dataset | null> {
@@ -187,12 +110,12 @@ async function main() {
     ? new Date(now.getTime() - (days ?? 30) * day)
     : new Date(Date.parse(previous.generatedAt) - 2 * day);
   since.setUTCHours(0, 0, 0, 0);
-  const saved = new Map(previous?.runs.map((run) => [run.id, run]));
+  const saved = new Map(previous?.runs.filter((run) => run.event === "push" && run.branch === "main").map((run) => [run.id, run]));
   const discovered = new Map<number, ApiRun>();
   for (const window of dateWindows(since, now)) {
     const runs = await listRuns(window.start, window.end);
     for (const run of runs) discovered.set(run.id, run);
-    console.log(`${window.start.slice(0, 10)}: ${runs.length} main push / scheduled runs`);
+    console.log(`${window.start.slice(0, 10)}: ${runs.length} TSV-All main pushes`);
   }
   // Pending runs can outlive the discovery lookback.
   for (const run of saved.values()) {
@@ -220,6 +143,7 @@ async function main() {
   await writeFile(`${output}.tmp`, `${JSON.stringify(dataset)}\n`);
   await rename(`${output}.tmp`, output);
   console.log(`Saved ${dataset.runs.length} runs; refreshed ${refreshed}.`);
+  await collectRegular(days, now);
 }
 
 if (import.meta.main) {

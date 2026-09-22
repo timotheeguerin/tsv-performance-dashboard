@@ -28,7 +28,9 @@ test("filters, per-shard details, and URL state", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/data/workflow.json", (route) => route.fulfill({ json: fixture }));
-  await page.goto("/");
+  await page.goto("/?cohort=next");
+  await expect(page.locator("#cohort")).toHaveCount(0);
+  await expect(page).not.toHaveURL(/cohort=/);
   await expect(page.locator("#run-count")).toHaveText("1");
   await expect(page.locator("#linux-median")).toHaveText("30m 00s");
   await expect(page.locator("#chart circle")).toHaveCount(2);
@@ -37,15 +39,10 @@ test("filters, per-shard details, and URL state", async ({ page }) => {
   await page.selectOption("#metric", "validation");
   await expect(page.locator("#linux-median")).toHaveText("80m 00s");
   await expect(page).toHaveURL(/metric=validation/);
-  await page.selectOption("#cohort", "schedule");
-  await expect(page.locator("#run-count")).toHaveText("1");
-  await page.selectOption("#cohort", "next");
-  await expect(page.locator("#run-count")).toHaveText("0");
-  await expect(page.locator("#comparison-panel")).toBeHidden();
   await page.selectOption("#outcome", "all");
   await expect(page.locator("#run-count")).toHaveText("1");
   await page.reload();
-  await expect(page.locator("#cohort")).toHaveValue("next");
+  await expect(page.locator("#metric")).toHaveValue("validation");
   await expect(page.locator("#run-count")).toHaveText("1");
   expect(errors).toEqual([]);
 });

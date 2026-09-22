@@ -16,22 +16,19 @@
         <div>
           <p class="eyebrow">AZURE REST API SPECS <span>/</span> ENGINEERING HEALTH</p>
           <h1>TSV runtime tracker<span class="dot">.</span></h1>
-          <p class="subtitle">TypeSpec Validation - All, measured over time.</p>
+          <p class="subtitle">TypeSpec Validation - All. Main branch pushes only.</p>
         </div>
         <nav aria-label="Source links">
           <a href="https://github.com/Azure/azure-rest-api-specs/actions/workflows/typespec-validation-all.yaml">Workflow <span aria-hidden="true">&#8599;</span></a>
           <a href="https://github.com/timotheeguerin/tsv-performance-dashboard">Source <span aria-hidden="true">&#8599;</span></a>
         </nav>
       </header>
+      <nav class="dashboard-tabs" aria-label="Dashboards">
+        <a href="./index.html" aria-current="page">TSV-All</a>
+        <a href="./regular.html">Regular TSV</a>
+      </nav>
       <div id="status" role="status" class="status">Loading workflow history...</div>
       <section class="filters" aria-label="Chart filters">
-        <label>Checkout / trigger
-          <select id="cohort">
-            <option value="push">Main / push</option>
-            <option value="schedule">Main / scheduled</option>
-            <option value="next">TypeSpec next / scheduled</option>
-          </select>
-        </label>
         <label>Time range
           <select id="days">
             <option value="7">Last 7 days</option>
@@ -50,8 +47,8 @@
         </label>
         <label>Outcome
           <select id="outcome">
-            <option value="success">Successful checkouts</option>
-            <option value="all">All completed checkouts</option>
+            <option value="success">Successful runs</option>
+            <option value="all">All completed runs</option>
           </select>
         </label>
       </section>
@@ -79,8 +76,8 @@
         <button id="more" type="button" hidden>Show more runs</button>
       </section>
       <footer>
-        <p>Refreshed hourly from the GitHub Actions API. PR runs are intentionally excluded.</p>
-        <p>Scheduled runs use two checkouts. Their overall workflow duration can be dominated by <code>typespec-next</code>, even when main finishes sooner.</p>
+        <p>Refreshed hourly from the GitHub Actions API. Only main branch pushes are included.</p>
+        <p>Scheduled runs, PR runs, and other branches are excluded. Regular PR validation is tracked on the separate Regular TSV dashboard.</p>
       </footer>
     </main>
     <noscript><p class="status error">JavaScript is required to display the dashboard. <a href="./data/workflow.json">Download the raw data.</a></p></noscript>

@@ -28,12 +28,17 @@ nav { display: flex; gap: 24px; padding-top: 10px; white-space: nowrap; }
 .subtitle { font-size: 16px; color: var(--muted); }
 .status { color: var(--muted); font-size: 12px; margin-bottom: 24px; }
 .status.error { padding: 14px; color: var(--red); border: 1px solid var(--red); border-radius: 8px; }
-.filters { display: grid; grid-template-columns: 1.2fr .8fr 1.2fr 1fr; gap: 16px; margin-bottom: 24px; }
+.filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.dashboard-tabs { padding: 0; gap: 8px; margin-bottom: 22px; border-bottom: 1px solid var(--border); }
+.dashboard-tabs a { padding: 10px 18px; color: var(--muted); border-bottom: 2px solid transparent; font-weight: 600; }
+.dashboard-tabs a[aria-current] { color: var(--blue); border-color: var(--blue); }
+.notice { color: var(--muted); background: var(--soft); padding: 12px 16px; margin-bottom: 24px; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
 label { display: flex; flex-direction: column; gap: 7px; font-size: 12px; font-weight: 600; color: var(--muted); }
 select { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--panel); color: var(--text); font: inherit; font-size: 14px; }
 button, select, a, summary { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
 .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 24px; }
+.cards-four { grid-template-columns: repeat(4, 1fr); }
 .card, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 12px; }
 .card { padding: 21px 24px; }
 .card p { font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--muted); }
@@ -42,17 +47,19 @@ button, select, a, summary { -webkit-tap-highlight-color: transparent; }
 .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
 .linux { background: var(--blue); }
 .windows { background: var(--orange); }
+.count { background: var(--green); }
 .panel { padding: 24px; margin-bottom: 24px; }
 .panel-heading { margin-bottom: 20px; }
 .panel-heading p { margin-top: 4px; color: var(--muted); font-size: 12px; max-width: 740px; }
 .panel-heading > a { white-space: nowrap; font-size: 12px; }
 .legend { display: flex; gap: 16px; color: var(--muted); font-size: 12px; white-space: nowrap; }
-#chart { min-height: 260px; }
-#chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+#chart, .chart { min-height: 260px; }
+#chart svg, .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .grid { stroke: var(--border); stroke-dasharray: 3 5; }
 .axis-label { fill: var(--muted); font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .series-linux { stroke: var(--blue); fill: var(--blue); }
 .series-windows { stroke: var(--orange); fill: var(--orange); }
+.series-count { stroke: var(--green); fill: var(--green); }
 .trend { fill: none; stroke-width: 2.5; }
 .point { opacity: .35; stroke-width: 1; }
 .point:hover, a:focus .point { opacity: 1; r: 6; }
@@ -68,6 +75,7 @@ button, select, a, summary { -webkit-tap-highlight-color: transparent; }
 .footnote { margin-top: 16px; }
 details { border-top: 1px solid var(--border); }
 summary { cursor: pointer; padding: 14px 0; display: grid; grid-template-columns: 135px minmax(0, 1fr) 110px 110px; align-items: center; gap: 16px; list-style: none; }
+.regular-summary { grid-template-columns: 135px minmax(0, 1fr) 65px 100px 170px; }
 summary::-webkit-details-marker { display: none; }
 summary:hover { background: var(--soft); }
 .run-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -99,17 +107,20 @@ footer p + p { margin-top: 4px; }
   nav { padding: 0; font-size: 12px; }
   .filters { grid-template-columns: 1fr 1fr; gap: 12px; }
   .cards { gap: 8px; }
+  .cards-four { grid-template-columns: repeat(2, 1fr); }
   .card { padding: 14px 10px; }
   .card p { font-size: 9px; letter-spacing: .3px; }
   .card strong { font-size: 22px; }
   .card small { font-size: 10px; }
   .panel { padding: 16px; }
   .panel-heading { flex-wrap: wrap; gap: 10px; }
-  #chart { min-height: 180px; overflow-x: auto; }
-  #chart svg { min-width: 620px; }
+  #chart, .chart { min-height: 180px; overflow-x: auto; }
+  #chart svg, .chart svg { min-width: 620px; }
   .chart-caption { flex-direction: column; gap: 4px; }
   .comparison { grid-template-columns: 1fr; gap: 12px; }
   summary { grid-template-columns: minmax(0, 1fr) 80px 80px; gap: 8px; }
+  .regular-summary { grid-template-columns: minmax(0, 1fr) 75px 130px; }
+  .regular-summary .run-title { grid-column: 1 / -1; }
   .run-date { grid-column: 1 / -1; }
   .run-title { font-size: 12px; }
 }

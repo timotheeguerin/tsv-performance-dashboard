@@ -7,7 +7,7 @@ export const milestone = {
 export const metrics = {
   elapsed: {
     label: "Completion time",
-    description: "First job start to last job finish for each OS and selected checkout. Includes setup and cleanup; excludes queue time.",
+    description: "First job start to last job finish for each OS on main. Includes setup and cleanup; excludes queue time.",
   },
   validation: {
     label: "Total validation work",
@@ -31,10 +31,8 @@ export function median(values) {
   return (sorted[Math.floor((sorted.length - 1) / 2)] + sorted[Math.ceil((sorted.length - 1) / 2)]) / 2;
 }
 
-export function cohortJobs(run, cohort) {
-  const event = cohort === "push" ? "push" : "schedule";
-  const ref = cohort === "next" ? "next" : "default";
-  return run.event === event && run.branch === "main" ? run.jobs.filter((job) => job.ref === ref) : [];
+export function mainJobs(run) {
+  return run.event === "push" && run.branch === "main" ? run.jobs.filter((job) => job.ref === "default") : [];
 }
 
 export function completeShards(jobs) {
@@ -59,11 +57,11 @@ export function valueForJobs(jobs, metric) {
     : Math.max(...jobs.map((job) => job.validation));
 }
 
-export function selectRuns(runs, { cohort, days, outcome, metric }, now = Date.now()) {
+export function selectRuns(runs, { days, outcome, metric }, now = Date.now()) {
   const cutoff = days === "all" ? -Infinity : now - Number(days) * 86_400_000;
   return runs.filter((run) => Date.parse(run.createdAt) >= cutoff && run.status === "completed")
     .map((run) => {
-      const jobs = cohortJobs(run, cohort);
+      const jobs = mainJobs(run);
       const complete = ["ubuntu", "windows"].every((os) => completeShards(jobs.filter((job) => job.os === os)));
       return {
         ...run,
@@ -77,17 +75,6 @@ export function selectRuns(runs, { cohort, days, outcome, metric }, now = Date.n
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
-export function dailyMedians(runs, os) {
-  const days = new Map();
-  for (const run of runs) {
-    if (run[os] === null) continue;
-    const day = run.createdAt.slice(0, 10);
-    if (!days.has(day)) days.set(day, []);
-    days.get(day).push(run[os]);
-  }
-  return [...days].map(([day, values]) => ({ time: Date.parse(`${day}T12:00:00Z`), value: median(values) }));
-}
-
 export function comparison(runs, os) {
   const valid = runs.filter((run) => run[os] !== null);
   const before = valid.filter((run) => run.createdAt < milestone.time).slice(-7);
@@ -98,4 +85,39 @@ export function comparison(runs, os) {
     baseline, current, before: before.length, after: after.length,
     reduction: baseline > 0 && current !== null ? (1 - current / baseline) * 100 : null,
   };
+}
+
+export function perSpec(seconds, count) {
+  return Number.isFinite(seconds) && Number.isInteger(count) && count > 0 ? seconds / count : null;
+}
+
+export function specDuration(value) {
+  if (!Number.isFinite(value)) return "\u2014";
+  return value < 60 ? `${value.toFixed(1)}s` : duration(value);
+}
+
+export function selectRegularRuns(runs, { days, outcome, workload }, now = Date.now()) {
+  const cutoff = days === "all" ? -Infinity : now - Number(days) * 86_400_000;
+  return runs.filter((run) => run.event === "pull_request" && run.baseBranch === "main" &&
+    Date.parse(run.createdAt) >= cutoff && run.status === "completed" &&
+    run.jobs.length === 1 && run.jobs[0].status === "completed")
+    .map((run) => {
+      const job = run.jobs[0];
+      const specCount = run.specs.status === "available" ? run.specs.validated : null;
+      return {
+        ...run, selectedConclusion: job.conclusion,
+        total: job.elapsed, validation: job.validation, specCount,
+        totalPerSpec: perSpec(job.elapsed, specCount),
+        validationPerSpec: perSpec(job.validation, specCount),
+      };
+    })
+    .filter((run) => (outcome === "all" || run.selectedConclusion === "success") &&
+      (workload === "all" || (workload === "with-specs" ? run.specCount > 0 : run.specCount === 0)))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+export function averagePerSpec(runs, key) {
+  const valid = runs.filter((run) => run.specCount > 0 && Number.isFinite(run[key]));
+  const specs = valid.reduce((sum, run) => sum + run.specCount, 0);
+  return specs > 0 ? valid.reduce((sum, run) => sum + run[key], 0) / specs : null;
 }
