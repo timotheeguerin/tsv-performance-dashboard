@@ -43,10 +43,14 @@ python3 -m http.server 8000 --directory public
 
 Open http://localhost:8000. To run browser checks, install Chromium with `npx playwright install chromium`, then run `npm run test:browser`.
 
-The hourly GitHub Actions workflow refreshes both datasets, commits the JSON history, and deploys `public/` to GitHub Pages. The initial import contains 30 days; historical records are retained. Completed unchanged runs reuse cached timings and project counts. Pending runs continue to be refreshed even if they fall outside the normal two-day lookback.
+The GitHub Actions workflow is scheduled hourly to refresh both datasets, commit the JSON history, and deploy `public/` to GitHub Pages. GitHub may delay or skip scheduled starts, so hourly publication is not guaranteed. A newer refresh cancels any older in-progress run, including a deployment stuck waiting for a runner or environment, rather than queuing behind it indefinitely. The previously published site remains available until a deployment succeeds.
+
+The initial import contains 30 days; historical records are retained. Completed unchanged runs reuse cached timings and project counts. Pending runs continue to be refreshed even if they fall outside the normal two-day lookback.
 
 Regular TSV batches job/step metadata through GraphQL and downloads compressed logs only for new or changed runs. Fork runs with empty REST PR associations are resolved by exact fork owner/branch and PR lifetime, with commit associations as a fallback. This also handles old commits made unreachable by force pushes. Ambiguous or unknown targets are excluded and reported, not assumed to target main.
 
 Run the workflow manually with `backfill_days` to import older history or discover reruns of older completed runs. Only the latest attempt of each run is retained. GitHub's API retention limits how far back timings remain available. GitHub may delay scheduled workflows and disables schedules in public repositories after 60 days without activity.
 
 Each dataset is written atomically. Collection errors fail the workflow before committing or publishing refreshed data. Unavailable log counts are retained with an explicit reason. The site flags data older than four hours. No credentials or raw logs are included in the published site; only public run metadata, timings, and project counts are retained.
+
+If the published data is stale, inspect the [refresh workflow](https://github.com/timotheeguerin/tsv-performance-dashboard/actions/workflows/pages.yaml) and manually dispatch a new run. The collector catches up from the last recorded refresh; a normal dispatch does not need a backfill value.

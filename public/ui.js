@@ -49,6 +49,7 @@ export async function loadDataset(path) {
   const unresolved = dataset.exclusions?.filter((run) => run.reason === "base-unresolved").length ?? 0;
   $("status").textContent = `Updated ${timestamp(dataset.generatedAt)} UTC \u00b7 ${dataset.runs.length} runs archived since ${date(dataset.historyStart)}${unresolved ? ` \u00b7 ${unresolved} runs with unconfirmed PR targets excluded.` : ""}${stale ? " \u00b7 Data is over 4 hours old; the refresh workflow may be delayed or failing." : ""}`;
   if (stale) $("status").classList.add("error");
+  $("status").append(" \u00b7 ", link("Refresh status \u2197", "https://github.com/timotheeguerin/tsv-performance-dashboard/actions/workflows/pages.yaml"));
   return dataset;
 }
 

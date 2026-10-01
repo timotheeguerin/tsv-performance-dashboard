@@ -77,6 +77,19 @@ test("missing validation time stays unavailable despite a completed job", async 
   await expect(page.locator("#spec-count")).toHaveText("2");
 });
 
+test("stale data keeps charts visible and links to the refresh workflow", async ({ page }) => {
+  await page.route("**/data/regular.json", (route) => route.fulfill({
+    json: { ...fixture, generatedAt: new Date(Date.now() - 28 * 3_600_000).toISOString() },
+  }));
+  await page.goto("/regular.html");
+  await expect(page.locator("#status")).toHaveClass(/error/);
+  await expect(page.locator("#status")).toContainText("Data is over 4 hours old");
+  await expect(page.locator("#status").getByRole("link", { name: /Refresh status/ })).toHaveAttribute(
+    "href", "https://github.com/timotheeguerin/tsv-performance-dashboard/actions/workflows/pages.yaml",
+  );
+  await expect(page.locator(".chart svg")).toHaveCount(3);
+});
+
 test("regular mobile layout and navigation to main-only TSV-All", async ({ page }) => {
   await page.route("**/data/regular.json", (route) => route.fulfill({ json: fixture }));
   await page.setViewportSize({ width: 390, height: 844 });

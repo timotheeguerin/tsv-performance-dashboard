@@ -14,7 +14,8 @@ on:
 
 concurrency:
   group: runtime-dashboard
-  cancel-in-progress: false
+  # A deployment waiting for a runner must not block newer refreshes indefinitely.
+  cancel-in-progress: true
 
 permissions:
   contents: read
