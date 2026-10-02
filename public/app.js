@@ -2,15 +2,21 @@ import { comparison, duration, median, metrics, milestones, selectRuns } from ".
 import { drawChart } from "./chart.js";
 import { $, date, element, filterOptions, link, loadDataset, restoreFilters, showError, timestamp } from "./ui.js";
 
-const fields = ["days", "metric", "outcome", "milestone"];
+const fields = ["days", "metric", "outcome"];
 let dataset;
 let limit = 20;
 
 function renderComparison(runs, milestone) {
-  $("comparison-title").textContent = milestone.label;
-  $("comparison-description").textContent = `Nearest 7 successful main pushes before and first 7 after ${timestamp(milestone.time)} UTC. Medians, within the selected time range.`;
-  $("comparison-link").replaceChildren(link(`PR ${milestone.pr} \u2197`, milestone.url));
-  $("comparison").replaceChildren();
+  const panel = element("section", undefined, "panel");
+  panel.id = `comparison-${milestone.id}`;
+  const title = element("h2", milestone.label);
+  title.id = `${panel.id}-title`;
+  panel.setAttribute("aria-labelledby", title.id);
+  const heading = element("div", undefined, "panel-heading");
+  const description = element("div");
+  description.append(title, element("p", `Nearest 7 successful main pushes before and first 7 after ${timestamp(milestone.time)} UTC. Medians, within the selected time range.`));
+  heading.append(description, link(`PR ${milestone.pr} \u2197`, milestone.url));
+  const rows = element("div", undefined, "comparison");
   for (const os of ["ubuntu", "windows"]) {
     const result = comparison(runs.filter((run) => run.selectedConclusion === "success"), os, milestone);
     const row = element("div", undefined, "comparison-row");
@@ -22,8 +28,10 @@ function renderComparison(runs, milestone) {
       row.append(element("span", "No runs on both sides of the merge within these filters."));
     }
     row.append(element("p", `${result.before} before / ${result.after} after \u00b7 ${metrics[$("metric").value].label.toLowerCase()}`));
-    $("comparison").append(row);
+    rows.append(row);
   }
+  panel.append(heading, rows, element("p", "Observed timings, not a controlled benchmark. Workload changes and hosted-runner variability affect these comparisons.", "footnote"));
+  return panel;
 }
 
 function renderRuns(runs) {
@@ -74,7 +82,6 @@ function renderRuns(runs) {
 function render() {
   if (!dataset) return;
   const options = filterOptions(fields);
-  const milestone = milestones.find((item) => item.id === options.milestone);
   const runs = selectRuns(dataset.runs, options);
   for (const [os, id] of [["ubuntu", "linux"], ["windows", "windows"]]) {
     const values = runs.map((run) => run[os]).filter((value) => value !== null);
@@ -87,19 +94,14 @@ function render() {
   $("metric-description").textContent = metrics[options.metric].description;
   drawChart($("chart"), runs, {
     title: `${metrics[options.metric].label} by run, Linux and Windows`,
-    annotation: milestone,
+    annotations: milestones,
     series: [{ key: "ubuntu", label: "Linux", color: "linux" }, { key: "windows", label: "Windows", color: "windows" }],
   });
-  renderComparison(runs, milestone);
+  $("comparisons").replaceChildren(...milestones.toReversed().map((milestone) => renderComparison(runs, milestone)));
   renderRuns(runs);
 }
 
 async function load() {
-  for (const milestone of milestones.toReversed()) {
-    const option = element("option", milestone.label);
-    option.value = milestone.id;
-    $("milestone").append(option);
-  }
   restoreFilters(fields, () => { limit = 20; render(); });
   $("more").addEventListener("click", () => { limit += 20; render(); });
   dataset = await loadDataset("./data/workflow.json");

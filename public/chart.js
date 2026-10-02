@@ -26,7 +26,7 @@ function tickStep(max, count) {
   return count ? Math.max(1, step) : step;
 }
 
-export function drawChart(container, runs, { title, series, count = false, annotation, format = duration }) {
+export function drawChart(container, runs, { title, series, count = false, annotations = [], format = duration }) {
   container.replaceChildren();
   const points = runs.filter((run) => series.some(({ key }) => Number.isFinite(run[key])));
   if (!points.length) {
@@ -34,9 +34,10 @@ export function drawChart(container, runs, { title, series, count = false, annot
     return;
   }
   const width = 1100, height = 300;
-  const margin = { left: 60, right: 20, top: 32, bottom: 34 };
   const minX = Math.floor(Date.parse(points[0].createdAt) / 86_400_000) * 86_400_000;
   const maxX = Math.floor(Date.parse(points.at(-1).createdAt) / 86_400_000 + 1) * 86_400_000;
+  const visibleAnnotations = annotations.filter((annotation) => Date.parse(annotation.time) >= minX && Date.parse(annotation.time) <= maxX);
+  const margin = { left: 60, right: 20, top: 32 + Math.max(0, visibleAnnotations.length - 1) * 16, bottom: 34 };
   const largest = points.reduce((max, run) => Math.max(max, ...series.map(({ key }) => run[key] ?? 0)), 0);
   const tick = tickStep(largest, count);
   const maxY = Math.max(tick, Math.ceil(largest / tick) * tick);
@@ -54,12 +55,11 @@ export function drawChart(container, runs, { title, series, count = false, annot
     const label = maxX - minX <= 86_400_000 ? new Date(time).toISOString().slice(11, 16) : date(time);
     svg.append(svgNode("text", { x: x(time), y: height - 8, "text-anchor": index === 0 ? "start" : index === 6 ? "end" : "middle", class: "axis-label" }, label));
   }
-  const mergeTime = Date.parse(annotation?.time);
-  if (annotation && mergeTime >= minX && mergeTime <= maxX) {
-    const position = x(mergeTime);
+  for (const [index, annotation] of visibleAnnotations.entries()) {
+    const position = x(Date.parse(annotation.time));
     svg.append(svgNode("line", { x1: position, x2: position, y1: margin.top - 8, y2: height - margin.bottom, class: "milestone" }));
     const anchor = svgNode("a", { href: link("", annotation.url).href, target: "_blank", rel: "noopener noreferrer" });
-    anchor.append(svgNode("text", { x: position > width / 2 ? position - 8 : position + 8, y: 16, "text-anchor": position > width / 2 ? "end" : "start", class: "milestone-label" }, `${annotation.label} merged`));
+    anchor.append(svgNode("text", { x: position > width / 2 ? position - 8 : position + 8, y: 16 + index * 16, "text-anchor": position > width / 2 ? "end" : "start", class: "milestone-label" }, `${annotation.label} merged`));
     svg.append(anchor);
   }
   for (const { key, label, color, weightKey } of series) {

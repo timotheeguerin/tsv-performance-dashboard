@@ -18,9 +18,9 @@ Both default to successful runs and offer an all-completed-runs filter.
 
 Dots represent runs; lines represent UTC daily medians. Complete historical zero-based shards (`0,1,2`) and current one-based shards (`1,2,3`) are supported. Incomplete, duplicate, or mixed shard sets and missing step timestamps produce missing measurements, never artificially fast partial totals.
 
-The **Milestone** selector updates the chart marker and merge comparison. It includes [Direct CLI launches](https://github.com/Azure/azure-rest-api-specs/pull/46521) (September 22) and [Skip redundant client compilation](https://github.com/Azure/azure-rest-api-specs/pull/46970) (October 2, 15:55:21 UTC). The latest milestone and **Total validation work** are selected by default; explicit URL filters still take precedence.
+Both milestones remain visible together: [Direct CLI launches](https://github.com/Azure/azure-rest-api-specs/pull/46521) (September 22) and [Skip redundant client compilation](https://github.com/Azure/azure-rest-api-specs/pull/46970) (October 2, 15:55:21 UTC). The chart marks every milestone within its date range, and each has its own comparison panel below, newest first. **Total validation work** is selected by default; explicit URL filters still take precedence.
 
-The comparison calculates medians from up to seven successful main pushes immediately before and after the selected merge, within the selected time range, and displays the actual sample counts. No performance percentages are hard-coded. These are observations, not controlled benchmarks; workload and hosted-runner differences still apply. The milestone selection is shareable through the `milestone` URL parameter (`direct-launch` or `single-entrypoint`).
+Each comparison calculates medians from up to seven successful main pushes immediately before and after its merge, within the selected time range, and displays the actual sample counts. Panels remain visible when the time filter leaves insufficient data for a comparison. No performance percentages are hard-coded. These are observations, not controlled benchmarks; workload and hosted-runner differences still apply.
 
 ## Regular TSV measurements
 
