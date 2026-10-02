@@ -28,7 +28,7 @@
         <a href="./regular.html">Regular TSV</a>
       </nav>
       <div id="status" role="status" class="status">Loading workflow history...</div>
-      <section class="filters" aria-label="Chart filters">
+      <section class="filters all-filters" aria-label="Chart filters">
         <label>Time range
           <select id="days">
             <option value="7">Last 7 days</option>
@@ -41,7 +41,7 @@
         <label>Measure
           <select id="metric">
             <option value="elapsed">Completion time</option>
-            <option value="validation">Total validation work</option>
+            <option value="validation" selected>Total validation work</option>
             <option value="slowest">Slowest validation shard</option>
           </select>
         </label>
@@ -51,6 +51,9 @@
             <option value="all">All completed runs</option>
           </select>
         </label>
+        <label>Milestone
+          <select id="milestone"></select>
+        </label>
       </section>
       <section class="cards" aria-label="Summary">
         <article class="card"><p><span class="swatch linux"></span> LINUX MEDIAN</p><strong id="linux-median">--</strong><small id="linux-count">Across selected runs</small></article>
@@ -59,14 +62,14 @@
       </section>
       <section class="panel chart-panel" aria-labelledby="chart-title">
         <div class="panel-heading">
-          <div><h2 id="chart-title">Completion time</h2><p id="metric-description"></p></div>
+          <div><h2 id="chart-title">Total validation work</h2><p id="metric-description"></p></div>
           <div class="legend"><span><i class="swatch linux"></i> Linux</span><span><i class="swatch windows"></i> Windows</span></div>
         </div>
         <div id="chart" aria-live="polite"></div>
         <div class="chart-caption"><span>Dots: individual runs. Lines: daily medians. Click a dot to open its run.</span><span>All dates UTC</span></div>
       </section>
       <section class="panel" id="comparison-panel" aria-labelledby="comparison-title">
-        <div class="panel-heading"><div><h2 id="comparison-title">Around the direct-launch merge</h2><p>Nearest 7 successful main pushes before and first 7 after September 22, 12:01 UTC. Medians, within the selected time range.</p></div><a href="https://github.com/Azure/azure-rest-api-specs/pull/46521">PR 46521 &#8599;</a></div>
+        <div class="panel-heading"><div><h2 id="comparison-title">Around the selected merge</h2><p id="comparison-description"></p></div><span id="comparison-link"></span></div>
         <div id="comparison" class="comparison"></div>
         <p class="footnote">Observed timings, not a controlled benchmark. Workload changes and hosted-runner variability affect these comparisons.</p>
       </section>

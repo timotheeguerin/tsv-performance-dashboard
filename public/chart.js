@@ -1,4 +1,4 @@
-import { duration, median, milestone } from "./metrics.js";
+import { duration, median } from "./metrics.js";
 import { date, element, link, svgNode, timestamp } from "./ui.js";
 
 export function dailySeries(runs, key, weightKey) {
@@ -26,7 +26,7 @@ function tickStep(max, count) {
   return count ? Math.max(1, step) : step;
 }
 
-export function drawChart(container, runs, { title, series, count = false, annotation = false, format = duration }) {
+export function drawChart(container, runs, { title, series, count = false, annotation, format = duration }) {
   container.replaceChildren();
   const points = runs.filter((run) => series.some(({ key }) => Number.isFinite(run[key])));
   if (!points.length) {
@@ -54,11 +54,13 @@ export function drawChart(container, runs, { title, series, count = false, annot
     const label = maxX - minX <= 86_400_000 ? new Date(time).toISOString().slice(11, 16) : date(time);
     svg.append(svgNode("text", { x: x(time), y: height - 8, "text-anchor": index === 0 ? "start" : index === 6 ? "end" : "middle", class: "axis-label" }, label));
   }
-  const mergeTime = Date.parse(milestone.time);
+  const mergeTime = Date.parse(annotation?.time);
   if (annotation && mergeTime >= minX && mergeTime <= maxX) {
     const position = x(mergeTime);
     svg.append(svgNode("line", { x1: position, x2: position, y1: margin.top - 8, y2: height - margin.bottom, class: "milestone" }));
-    svg.append(svgNode("text", { x: position > width / 2 ? position - 8 : position + 8, y: 16, "text-anchor": position > width / 2 ? "end" : "start", class: "milestone-label" }, "Direct CLI launches merged"));
+    const anchor = svgNode("a", { href: link("", annotation.url).href, target: "_blank", rel: "noopener noreferrer" });
+    anchor.append(svgNode("text", { x: position > width / 2 ? position - 8 : position + 8, y: 16, "text-anchor": position > width / 2 ? "end" : "start", class: "milestone-label" }, `${annotation.label} merged`));
+    svg.append(anchor);
   }
   for (const { key, label, color, weightKey } of series) {
     const daily = dailySeries(points, key, weightKey);

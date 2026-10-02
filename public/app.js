@@ -1,15 +1,18 @@
-import { comparison, duration, median, metrics, selectRuns } from "./metrics.js";
+import { comparison, duration, median, metrics, milestones, selectRuns } from "./metrics.js";
 import { drawChart } from "./chart.js";
 import { $, date, element, filterOptions, link, loadDataset, restoreFilters, showError, timestamp } from "./ui.js";
 
-const fields = ["days", "metric", "outcome"];
+const fields = ["days", "metric", "outcome", "milestone"];
 let dataset;
 let limit = 20;
 
-function renderComparison(runs) {
+function renderComparison(runs, milestone) {
+  $("comparison-title").textContent = milestone.label;
+  $("comparison-description").textContent = `Nearest 7 successful main pushes before and first 7 after ${timestamp(milestone.time)} UTC. Medians, within the selected time range.`;
+  $("comparison-link").replaceChildren(link(`PR ${milestone.pr} \u2197`, milestone.url));
   $("comparison").replaceChildren();
   for (const os of ["ubuntu", "windows"]) {
-    const result = comparison(runs.filter((run) => run.selectedConclusion === "success"), os);
+    const result = comparison(runs.filter((run) => run.selectedConclusion === "success"), os, milestone);
     const row = element("div", undefined, "comparison-row");
     row.append(element("p", os === "ubuntu" ? "LINUX" : "WINDOWS"));
     row.append(element("strong", `${duration(result.baseline)} \u2192 ${duration(result.current)}`));
@@ -71,6 +74,7 @@ function renderRuns(runs) {
 function render() {
   if (!dataset) return;
   const options = filterOptions(fields);
+  const milestone = milestones.find((item) => item.id === options.milestone);
   const runs = selectRuns(dataset.runs, options);
   for (const [os, id] of [["ubuntu", "linux"], ["windows", "windows"]]) {
     const values = runs.map((run) => run[os]).filter((value) => value !== null);
@@ -83,14 +87,19 @@ function render() {
   $("metric-description").textContent = metrics[options.metric].description;
   drawChart($("chart"), runs, {
     title: `${metrics[options.metric].label} by run, Linux and Windows`,
-    annotation: true,
+    annotation: milestone,
     series: [{ key: "ubuntu", label: "Linux", color: "linux" }, { key: "windows", label: "Windows", color: "windows" }],
   });
-  renderComparison(runs);
+  renderComparison(runs, milestone);
   renderRuns(runs);
 }
 
 async function load() {
+  for (const milestone of milestones.toReversed()) {
+    const option = element("option", milestone.label);
+    option.value = milestone.id;
+    $("milestone").append(option);
+  }
   restoreFilters(fields, () => { limit = 20; render(); });
   $("more").addEventListener("click", () => { limit += 20; render(); });
   dataset = await loadDataset("./data/workflow.json");

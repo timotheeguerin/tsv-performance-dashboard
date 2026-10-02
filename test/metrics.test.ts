@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { comparison, completeShards, duration, median, selectRuns, valueForJobs } from "../public/metrics.js";
+import { comparison, completeShards, duration, median, milestones, selectRuns, valueForJobs } from "../public/metrics.js";
 import { dailySeries } from "../public/chart.js";
 
 const jobs = (ref = "default", os = "ubuntu") => [0, 1, 2].map((shard) => ({
@@ -37,6 +37,26 @@ test("missing, duplicate, skipped, or incomplete shards cannot produce a partial
   assert.equal(valueForJobs(jobs().map((job) => ({ ...job, validation: null })), "validation"), null);
   assert.equal(valueForJobs(jobs().map((job) => ({ ...job, status: "in_progress" })), "elapsed"), null);
 });
+test("both historical and current shard numbering produce complete measurements", () => {
+  for (const offset of [0, 1]) {
+    const currentJobs = run().jobs.map((job) => ({ ...job, shard: job.shard + offset }));
+    const selected = selectRuns([run({ jobs: currentJobs })], { days: "all", outcome: "success", metric: "validation" });
+    assert.equal(selected.length, 1);
+    assert.equal(selected[0].ubuntu, 1500);
+    assert.equal(selected[0].windows, 1500);
+    assert.equal(valueForJobs(currentJobs.filter((job) => job.os === "ubuntu"), "elapsed"), 600);
+    assert.equal(valueForJobs(currentJobs.filter((job) => job.os === "ubuntu"), "slowest"), 500);
+  }
+});
+test("mixed, fractional, and out-of-range shard numbering stays incomplete", () => {
+  for (const shards of [[0, 1, 3], [0, 2, 3], [1, 1, 3], [1, 2, 4], [-1, 0, 1], [0, 0.5, 2], [1, 1.5, 3]]) {
+    const invalid = jobs().map((job, index) => ({ ...job, shard: shards[index] }));
+    assert.equal(completeShards(invalid), false, JSON.stringify(shards));
+    assert.equal(valueForJobs(invalid, "validation"), null);
+  }
+  assert.equal(completeShards([]), false);
+  assert.equal(completeShards(jobs().map((job, index) => ({ ...job, totalShards: index === 0 ? 3 : 4 }))), false);
+});
 test("scheduled runs are excluded even when main succeeds", () => {
   const next = [...jobs("next"), ...jobs("next", "windows")].map((job) => ({ ...job, conclusion: "failure" }));
   const scheduled = run({ event: "schedule", conclusion: "failure", jobs: [...run().jobs, ...next] });
@@ -56,8 +76,41 @@ test("time filter and UTC daily medians are deterministic", () => {
 test("merge comparison uses nearest before and first after, at most seven each", () => {
   const runs = Array.from({ length: 10 }, (_, index) => ({ createdAt: `2026-09-21T${String(index).padStart(2, "0")}:00:00Z`, ubuntu: 100 }));
   runs.push({ createdAt: "2026-09-22T13:00:00Z", ubuntu: 80 });
-  const result = comparison(runs, "ubuntu");
+  const result = comparison(runs, "ubuntu", milestones[0]);
   assert.equal(result.before, 7);
   assert.equal(result.after, 1);
   assert.ok(Math.abs(result.reduction - 20) < 1e-9);
+});
+test("selected milestone changes the comparison and includes the exact merge boundary", () => {
+  const runs = [
+    { createdAt: "2026-09-21T00:00:00Z", ubuntu: 100 },
+    { createdAt: "2026-09-23T00:00:00Z", ubuntu: 90 },
+    { createdAt: "2026-10-02T15:55:20Z", ubuntu: 80 },
+    { createdAt: "2026-10-02T15:55:21Z", ubuntu: 60 },
+    { createdAt: "2026-10-03T00:00:00Z", ubuntu: null },
+  ];
+  const old = comparison(runs, "ubuntu", milestones[0]);
+  assert.equal(old.baseline, 100);
+  assert.equal(old.current, 80);
+  assert.equal(old.before, 1);
+  assert.equal(old.after, 3);
+  const latest = comparison(runs, "ubuntu", milestones[1]);
+  assert.equal(latest.baseline, 90);
+  assert.equal(latest.current, 60);
+  assert.equal(latest.before, 3);
+  assert.equal(latest.after, 1);
+  const missing = comparison(runs.slice(0, 3), "ubuntu", milestones[1]);
+  assert.equal(missing.current, null);
+  assert.equal(missing.reduction, null);
+});
+test("comparison limits the after sample to the first seven valid runs", () => {
+  const runs = [
+    { createdAt: "2026-10-02T15:00:00Z", ubuntu: 100 },
+    ...Array.from({ length: 10 }, (_, index) => ({
+      createdAt: `2026-10-03T${String(index).padStart(2, "0")}:00:00Z`,
+      ubuntu: index < 7 ? 80 : 200,
+    })),
+  ];
+  assert.equal(comparison(runs, "ubuntu", milestones[1]).current, 80);
+  assert.equal(comparison(runs, "ubuntu", milestones[1]).after, 7);
 });

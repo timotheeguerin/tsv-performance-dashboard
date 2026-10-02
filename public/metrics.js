@@ -1,8 +1,19 @@
-export const milestone = {
-  time: "2026-09-22T12:01:03Z",
-  label: "Direct CLI launches",
-  url: "https://github.com/Azure/azure-rest-api-specs/pull/46521",
-};
+export const milestones = [
+  {
+    id: "direct-launch",
+    time: "2026-09-22T12:01:03Z",
+    label: "Direct CLI launches",
+    pr: 46521,
+    url: "https://github.com/Azure/azure-rest-api-specs/pull/46521",
+  },
+  {
+    id: "single-entrypoint",
+    time: "2026-10-02T15:55:21Z",
+    label: "Skip redundant client compilation",
+    pr: 46970,
+    url: "https://github.com/Azure/azure-rest-api-specs/pull/46970",
+  },
+];
 
 export const metrics = {
   elapsed: {
@@ -37,10 +48,11 @@ export function mainJobs(run) {
 
 export function completeShards(jobs) {
   const total = jobs[0]?.totalShards;
+  const first = jobs.some((job) => job.shard === 0) ? 0 : 1;
   return Number.isInteger(total) && total > 0 && jobs.length === total &&
     jobs.every((job) => job.totalShards === total && job.status === "completed") &&
     new Set(jobs.map((job) => job.shard)).size === total &&
-    jobs.every((job) => job.shard >= 0 && job.shard < total);
+    jobs.every((job) => Number.isInteger(job.shard) && job.shard >= first && job.shard < first + total);
 }
 
 export function valueForJobs(jobs, metric) {
@@ -75,8 +87,8 @@ export function selectRuns(runs, { days, outcome, metric }, now = Date.now()) {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
-export function comparison(runs, os) {
-  const valid = runs.filter((run) => run[os] !== null);
+export function comparison(runs, os, milestone) {
+  const valid = runs.filter((run) => Number.isFinite(run[os]));
   const before = valid.filter((run) => run.createdAt < milestone.time).slice(-7);
   const after = valid.filter((run) => run.createdAt >= milestone.time).slice(0, 7);
   const baseline = median(before.map((run) => run[os]));
