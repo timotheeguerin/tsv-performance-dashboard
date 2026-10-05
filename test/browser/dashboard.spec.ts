@@ -59,6 +59,8 @@ test("chart points show their time on hover and keyboard focus without blocking 
       : job) }] },
   }));
   await page.goto("/?metric=elapsed");
+  await expect(page.locator("#chart svg")).toHaveAccessibleName("Completion time by run, Linux and Windows");
+  await expect(page.locator("#chart svg title")).toHaveCount(0);
   const tooltip = page.getByRole("tooltip", { includeHidden: true });
   const linux = page.locator("#chart").getByRole("link", { name: /Linux: 30m 00s/ });
   const windows = page.locator("#chart").getByRole("link", { name: /Windows: 35m 00s/ });

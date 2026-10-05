@@ -53,7 +53,6 @@ export function drawChart(container, runs, { title, series, count = false, annot
     tooltip.style.top = `${Math.max(12, clientY + bounds.height + 24 <= window.innerHeight
       ? clientY + 12 : clientY - bounds.height - 12)}px`;
   };
-  svg.append(svgNode("title", {}, `${title}. Individual points link to GitHub runs.`));
   for (let value = 0; value <= maxY + tick / 100; value += tick) {
     svg.append(svgNode("line", { x1: margin.left, y1: y(value), x2: width - margin.right, y2: y(value), class: "grid" }));
     const label = count ? String(Math.round(value)) : value >= 60 ? `${+(value / 60).toFixed(1)}m` : `${+value.toFixed(1)}s`;

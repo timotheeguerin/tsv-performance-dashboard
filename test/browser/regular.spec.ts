@@ -55,6 +55,8 @@ test("regular chart tooltips use each metric's units and stay independent", asyn
     json: { ...fixture, runs: [base] },
   }));
   await page.goto("/regular.html");
+  await expect(page.locator(".chart svg title")).toHaveCount(0);
+  await expect(page.locator("#validation-chart svg")).toHaveAccessibleName("Validation step runtime");
   for (const [chart, value] of [
     ["validation-chart", "Validation: 1m 00s"],
     ["average-chart", "Validation / spec: 30.0s"],
