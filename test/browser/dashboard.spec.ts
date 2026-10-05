@@ -51,6 +51,43 @@ test("filters, per-shard details, and URL state", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test("chart points show their time on hover and keyboard focus without blocking run links", async ({ page }) => {
+  await page.context().route(baseRun.url, (route) => route.fulfill({ body: "Workflow run" }));
+  await page.route("**/data/workflow.json", (route) => route.fulfill({
+    json: { ...fixture, runs: [{ ...baseRun, jobs: jobs().map((job) => job.os === "windows"
+      ? { ...job, validation: 1900, completedAt: new Date(Date.parse(createdAt) + 2_100_000).toISOString() }
+      : job) }] },
+  }));
+  await page.goto("/?metric=elapsed");
+  const tooltip = page.getByRole("tooltip", { includeHidden: true });
+  const linux = page.locator("#chart").getByRole("link", { name: /Linux: 30m 00s/ });
+  const windows = page.locator("#chart").getByRole("link", { name: /Windows: 35m 00s/ });
+  await expect(tooltip).toBeHidden();
+  await linux.hover();
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveText(`Linux: 30m 00s (success)\n${createdAt.slice(0, 16).replace("T", " ")} UTC\nA workflow change`);
+  await windows.hover();
+  await expect(tooltip).toContainText("Windows: 35m 00s");
+  await page.mouse.move(0, 0);
+  await expect(tooltip).toBeHidden();
+  await linux.focus();
+  await expect(tooltip).toContainText("Linux: 30m 00s");
+  await page.keyboard.press("Escape");
+  await expect(tooltip).toBeHidden();
+  await windows.focus();
+  await expect(tooltip).toContainText("Windows: 35m 00s");
+  await windows.evaluate((node: SVGAElement) => node.blur());
+  await expect(tooltip).toBeHidden();
+  await linux.hover();
+  const popup = page.waitForEvent("popup");
+  await linux.click();
+  await expect(await popup).toHaveURL(baseRun.url);
+  await page.selectOption("#metric", "validation");
+  await expect(page.getByRole("tooltip", { includeHidden: true })).toBeHidden();
+  await page.locator("#chart").getByRole("link", { name: /Linux: 80m 00s/ }).hover();
+  await expect(page.getByRole("tooltip")).toContainText("Linux: 80m 00s");
+});
+
 test("both milestones and their independent comparisons stay visible together", async ({ page }) => {
   await page.clock.setFixedTime(new Date("2026-10-03T12:00:00Z"));
   const samples = [
@@ -125,6 +162,15 @@ test("API titles render as text and mobile layout fits the viewport", async ({ p
   await page.goto("/");
   await expect(page.locator(".run-title")).toHaveText(title);
   await expect(page.locator(".run-title img")).toHaveCount(0);
+  await page.locator("#chart a").last().hover();
+  const tooltip = page.getByRole("tooltip");
+  await expect(tooltip).toContainText(title);
+  await expect(tooltip.locator("img")).toHaveCount(0);
+  const bounds = await tooltip.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.locator("#runs summary").click();
   await expect(page.locator("#runs table")).toBeVisible();

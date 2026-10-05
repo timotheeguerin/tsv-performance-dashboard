@@ -9,6 +9,8 @@ Two small GitHub Pages dashboards for TypeSpec validation in Azure/azure-rest-ap
 
 Both default to successful runs and offer an all-completed-runs filter.
 
+Hover over a chart dot or focus it with the keyboard to see its measured value, UTC run timestamp, outcome, and title. Click the dot to open its GitHub run; press Escape to dismiss the tooltip.
+
 ## TSV-All measurements
 
 - **Completion time:** first job start to last job finish for one OS and checkout, including setup and cleanup, excluding queue time.

@@ -62,6 +62,7 @@ button, select, a, summary { -webkit-tap-highlight-color: transparent; }
 .trend { fill: none; stroke-width: 2.5; }
 .point { opacity: .35; stroke-width: 1; }
 .point:hover, a:focus .point { opacity: 1; r: 6; }
+.chart-tooltip { position: fixed; z-index: 10; width: max-content; max-width: min(320px, calc(100vw - 24px)); padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 4px 16px #0003; font-size: 12px; white-space: pre-line; overflow-wrap: anywhere; pointer-events: none; }
 .milestone { stroke: var(--muted); stroke-dasharray: 4 4; }
 .milestone-label { fill: var(--text); font-size: 11px; font-weight: 600; }
 .chart-caption { font-size: 11px; color: var(--muted); margin-top: 10px; }

@@ -44,6 +44,15 @@ export function drawChart(container, runs, { title, series, count = false, annot
   const x = (value) => margin.left + (value - minX) / (maxX - minX) * (width - margin.left - margin.right);
   const y = (value) => height - margin.bottom - value / maxY * (height - margin.top - margin.bottom);
   const svg = svgNode("svg", { viewBox: `0 0 ${width} ${height}`, role: "group", "aria-label": title });
+  const tooltip = element("div", undefined, "chart-tooltip");
+  tooltip.setAttribute("role", "tooltip");
+  tooltip.hidden = true;
+  const positionTooltip = (clientX, clientY) => {
+    const bounds = tooltip.getBoundingClientRect();
+    tooltip.style.left = `${Math.max(12, Math.min(clientX + 12, window.innerWidth - bounds.width - 12))}px`;
+    tooltip.style.top = `${Math.max(12, clientY + bounds.height + 24 <= window.innerHeight
+      ? clientY + 12 : clientY - bounds.height - 12)}px`;
+  };
   svg.append(svgNode("title", {}, `${title}. Individual points link to GitHub runs.`));
   for (let value = 0; value <= maxY + tick / 100; value += tick) {
     svg.append(svgNode("line", { x1: margin.left, y1: y(value), x2: width - margin.right, y2: y(value), class: "grid" }));
@@ -67,13 +76,28 @@ export function drawChart(container, runs, { title, series, count = false, annot
     svg.append(svgNode("path", { d: daily.map((point, index) => `${index ? "L" : "M"}${x(point.time)},${y(point.value)}`).join(" "), class: `series-${color} trend` }));
     for (const run of points) {
       if (!Number.isFinite(run[key])) continue;
-      const tooltip = `${timestamp(run.createdAt)} UTC, ${label}: ${format(run[key])} (${run.selectedConclusion}). ${run.title}`;
-      const anchor = svgNode("a", { href: link("", run.url).href, target: "_blank", rel: "noopener noreferrer", "aria-label": tooltip });
+      const description = `${timestamp(run.createdAt)} UTC, ${label}: ${format(run[key])} (${run.selectedConclusion}). ${run.title}`;
+      const anchor = svgNode("a", { href: link("", run.url).href, target: "_blank", rel: "noopener noreferrer", "aria-label": description });
       const point = svgNode("circle", { cx: x(Date.parse(run.createdAt)), cy: y(run[key]), r: 3.5, class: `series-${color} point` });
-      point.append(svgNode("title", {}, tooltip));
+      const showTooltip = (clientX, clientY) => {
+        tooltip.textContent = `${label}: ${format(run[key])} (${run.selectedConclusion})\n${timestamp(run.createdAt)} UTC\n${run.title}`;
+        tooltip.hidden = false;
+        positionTooltip(clientX, clientY);
+      };
+      anchor.addEventListener("pointerenter", (event) => showTooltip(event.clientX, event.clientY));
+      anchor.addEventListener("pointermove", (event) => positionTooltip(event.clientX, event.clientY));
+      anchor.addEventListener("pointerleave", () => { tooltip.hidden = true; });
+      anchor.addEventListener("focus", () => {
+        const bounds = point.getBoundingClientRect();
+        showTooltip(bounds.left + bounds.width / 2, bounds.bottom);
+      });
+      anchor.addEventListener("blur", () => { tooltip.hidden = true; });
+      anchor.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") tooltip.hidden = true;
+      });
       anchor.append(point);
       svg.append(anchor);
     }
   }
-  container.append(svg);
+  container.append(svg, tooltip);
 }

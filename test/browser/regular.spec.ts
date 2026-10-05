@@ -50,6 +50,26 @@ test("regular dashboard shows only validation timing, its average, and actual va
   expect(errors).toEqual([]);
 });
 
+test("regular chart tooltips use each metric's units and stay independent", async ({ page }) => {
+  await page.route("**/data/regular.json", (route) => route.fulfill({
+    json: { ...fixture, runs: [base] },
+  }));
+  await page.goto("/regular.html");
+  for (const [chart, value] of [
+    ["validation-chart", "Validation: 1m 00s"],
+    ["average-chart", "Validation / spec: 30.0s"],
+    ["count-chart", "Validated specs: 2"],
+  ]) {
+    await page.locator(`#${chart} a`).hover();
+    const tooltip = page.getByRole("tooltip");
+    await expect(tooltip).toContainText(value);
+    await expect(tooltip).toContainText(`${now.slice(0, 16).replace("T", " ")} UTC`);
+    await expect(tooltip).toContainText("A spec change");
+    await page.mouse.move(0, 0);
+    await expect(tooltip).toBeHidden();
+  }
+});
+
 test("changing setup and job duration does not move validation charts or summaries", async ({ page }) => {
   let slowSetup = false;
   await page.route("**/data/regular.json", (route) => route.fulfill({
