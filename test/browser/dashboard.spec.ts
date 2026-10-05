@@ -123,10 +123,10 @@ test("both milestones and their independent comparisons stay visible together", 
   await expect(page.locator("#chart .milestone-label")).toHaveText(["Direct CLI launches merged", "Skip redundant client compilation merged"]);
   await expect(page.locator("#chart line.milestone")).toHaveCount(2);
   const labels = await page.locator("#chart .milestone-label").evaluateAll((nodes) => nodes.map((node) => {
-    const { top, bottom } = node.getBoundingClientRect();
-    return { top, bottom };
+    const { left, right } = node.getBoundingClientRect();
+    return { left, right };
   }));
-  expect(labels[0].bottom).toBeLessThan(labels[1].top);
+  expect(labels[0].right).toBeLessThan(labels[1].left);
 
   await page.selectOption("#outcome", "all");
   await expect(page.locator("#run-count")).toHaveText("5");
@@ -155,9 +155,9 @@ test("existing milestone links preserve the metric without hiding either compari
   await expect(page.locator("#comparison-direct-launch")).toContainText("No runs on both sides of the merge");
 });
 
-test("setup regression and fix markers explain completion overhead without changing validation charts", async ({ page }) => {
+test("setup regression and fix markers explain completion overhead without changing validation charts", async ({ page }, testInfo) => {
   await page.clock.setFixedTime(new Date("2026-10-06T12:00:00Z"));
-  const runs = ["2026-09-21T00:00:00Z", "2026-10-06T00:00:00Z"]
+  const runs = ["2026-07-01T00:00:00Z", "2026-10-06T00:00:00Z"]
     .map((createdAt, index) => ({ ...baseRun, id: index + 1, createdAt }));
   await page.route("**/data/workflow.json", (route) => route.fulfill({ json: { ...fixture, runs } }));
   await page.goto("/?days=all&metric=elapsed");
@@ -167,19 +167,39 @@ test("setup regression and fix markers explain completion overhead without chang
     "Skip redundant client compilation merged",
     "Action archive setup removed",
   ]);
-  const regression = page.locator("#chart text.milestone-regression");
-  const fix = page.locator("#chart text.milestone-fix");
-  await expect(regression.locator("..")).toHaveAttribute("href", /\/pull\/46946$/);
-  await expect(fix.locator("..")).toHaveAttribute("href", /\/pull\/47021$/);
-  expect(await regression.evaluate((node) => getComputedStyle(node).fill))
-    .not.toEqual(await fix.evaluate((node) => getComputedStyle(node).fill));
-  const labels = await page.locator("#chart .milestone-label").evaluateAll((nodes) => nodes.map((node) => {
-    const { top, bottom } = node.getBoundingClientRect();
-    return { top, bottom };
-  }));
-  for (let index = 1; index < labels.length; index++) {
-    expect(labels[index - 1].bottom).toBeLessThan(labels[index].top);
+  const regression = page.locator("#chart .chart-event.milestone-regression");
+  const fix = page.locator("#chart .chart-event.milestone-fix");
+  await expect(regression).toHaveAttribute("href", /\/pull\/46946$/);
+  await expect(fix).toHaveAttribute("href", /\/pull\/47021$/);
+  await expect(regression).toContainText("2026-10-01 18:40 UTC");
+  await expect(fix).toContainText("2026-10-05 16:19 UTC");
+  expect(await regression.evaluate((node) => getComputedStyle(node).borderLeftColor))
+    .not.toEqual(await fix.evaluate((node) => getComputedStyle(node).borderLeftColor));
+  await expect(page.locator("#chart .annotation-number")).toHaveText(["1", "2", "3", "4"]);
+  await expect(page.locator("#chart .milestone-number")).toHaveText(["1", "2", "3", "4"]);
+  for (const width of [1440, 800, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const labels = await page.locator("#chart .chart-event").evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON()));
+    for (let index = 0; index < labels.length; index++) {
+      expect(labels[index].left).toBeGreaterThanOrEqual(0);
+      expect(labels[index].right).toBeLessThanOrEqual(width);
+      for (const other of labels.slice(index + 1)) {
+        expect(labels[index].right <= other.left || other.right <= labels[index].left ||
+          labels[index].bottom <= other.top || other.bottom <= labels[index].top).toBe(true);
+      }
+    }
+    const badges = await page.locator("#chart .milestone-badge").evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON()));
+    for (let index = 0; index < badges.length; index++) {
+      for (const other of badges.slice(index + 1)) {
+        expect(badges[index].right <= other.left || other.right <= badges[index].left ||
+          badges[index].bottom <= other.top || other.bottom <= badges[index].top).toBe(true);
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
+  await page.screenshot({ path: testInfo.outputPath("marker-key-mobile.png"), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: testInfo.outputPath("marker-key-desktop.png"), fullPage: true });
   await expect(page.locator("#setup-notice")).toBeVisible();
   await expect(page.locator("#setup-notice")).toContainText("not validation work");
   await expect(page.locator("#comparisons section")).toHaveCount(2);

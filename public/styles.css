@@ -64,7 +64,20 @@ button, select, a, summary { -webkit-tap-highlight-color: transparent; }
 .point:hover, a:focus .point { opacity: 1; r: 6; }
 .chart-tooltip { position: fixed; z-index: 10; width: max-content; max-width: min(320px, calc(100vw - 24px)); padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 4px 16px #0003; font-size: 12px; white-space: pre-line; overflow-wrap: anywhere; pointer-events: none; }
 .milestone { stroke: var(--muted); stroke-dasharray: 4 4; }
-.milestone-label { fill: var(--text); font-size: 11px; font-weight: 600; }
+.chart-annotations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; list-style: none; padding: 0; margin: 0 0 16px; }
+.chart-event { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 8px; background: var(--soft); color: var(--text); }
+.chart-event > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.milestone-label { display: block; font-size: 12px; font-weight: 600; }
+.chart-event small { display: block; color: var(--muted); font-size: 11px; }
+.annotation-number { flex: 0 0 24px; text-align: center; font-weight: 600; border: 1px solid var(--border); border-radius: 5px; background: var(--panel); }
+.milestone-badge { fill: var(--panel); stroke: var(--muted); }
+.milestone-number { fill: var(--text); font-size: 11px; font-weight: 600; }
+.chart-event.milestone-regression { border-left-color: var(--red); }
+.chart-event.milestone-fix { border-left-color: var(--green); }
+.chart-event.milestone-regression .milestone-label, .chart-event.milestone-regression .annotation-number { color: var(--red); }
+.chart-event.milestone-fix .milestone-label, .chart-event.milestone-fix .annotation-number { color: var(--green); }
+rect.milestone-regression { stroke: var(--red); }
+rect.milestone-fix { stroke: var(--green); }
 line.milestone-regression { stroke: var(--red); }
 text.milestone-regression { fill: var(--red); }
 line.milestone-fix { stroke: var(--green); }
@@ -119,6 +132,7 @@ footer p + p { margin-top: 4px; }
   .panel-heading { flex-wrap: wrap; gap: 10px; }
   #chart, .chart { min-height: 180px; overflow-x: auto; }
   #chart svg, .chart svg { min-width: 620px; }
+  .chart-annotations { grid-template-columns: 1fr; }
   .chart-caption { flex-direction: column; gap: 4px; }
   .comparison { grid-template-columns: 1fr; gap: 12px; }
   summary { grid-template-columns: minmax(0, 1fr) 80px 80px; gap: 8px; }

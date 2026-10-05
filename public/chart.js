@@ -36,12 +36,22 @@ export function drawChart(container, runs, { title, series, count = false, annot
   const width = 1100, height = 300;
   const minX = Math.floor(Date.parse(points[0].createdAt) / 86_400_000) * 86_400_000;
   const maxX = Math.floor(Date.parse(points.at(-1).createdAt) / 86_400_000 + 1) * 86_400_000;
-  const visibleAnnotations = annotations.filter((annotation) => Date.parse(annotation.time) >= minX && Date.parse(annotation.time) <= maxX);
-  const margin = { left: 60, right: 20, top: 32 + Math.max(0, visibleAnnotations.length - 1) * 16, bottom: 34 };
+  const visibleAnnotations = annotations.filter((annotation) => Date.parse(annotation.time) >= minX && Date.parse(annotation.time) <= maxX)
+    .toSorted((a, b) => a.time.localeCompare(b.time));
+  const margin = { left: 60, right: 20, top: 32, bottom: 34 };
   const largest = points.reduce((max, run) => Math.max(max, ...series.map(({ key }) => run[key] ?? 0)), 0);
   const tick = tickStep(largest, count);
   const maxY = Math.max(tick, Math.ceil(largest / tick) * tick);
   const x = (value) => margin.left + (value - minX) / (maxX - minX) * (width - margin.left - margin.right);
+  const rowEnds = [];
+  const annotationRows = visibleAnnotations.map((annotation) => {
+    const position = x(Date.parse(annotation.time));
+    let row = rowEnds.findIndex((end) => position - 16 > end);
+    if (row < 0) row = rowEnds.length;
+    rowEnds[row] = position + 16;
+    return row;
+  });
+  margin.top += Math.max(0, rowEnds.length - 1) * 24;
   const y = (value) => height - margin.bottom - value / maxY * (height - margin.top - margin.bottom);
   const svg = svgNode("svg", { viewBox: `0 0 ${width} ${height}`, role: "group", "aria-label": title });
   const tooltip = element("div", undefined, "chart-tooltip");
@@ -63,12 +73,28 @@ export function drawChart(container, runs, { title, series, count = false, annot
     const label = maxX - minX <= 86_400_000 ? new Date(time).toISOString().slice(11, 16) : date(time);
     svg.append(svgNode("text", { x: x(time), y: height - 8, "text-anchor": index === 0 ? "start" : index === 6 ? "end" : "middle", class: "axis-label" }, label));
   }
+  const annotationKey = element("ol", undefined, "chart-annotations");
+  annotationKey.setAttribute("aria-label", "Chart events");
   for (const [index, annotation] of visibleAnnotations.entries()) {
     const position = x(Date.parse(annotation.time));
     const kind = annotation.kind ? ` milestone-${annotation.kind}` : "";
+    const label = annotation.kind ? annotation.label : `${annotation.label} merged`;
+    const entry = element("li");
+    const eventLink = link("", annotation.url);
+    eventLink.className = `chart-event${kind}`;
+    const number = element("span", String(index + 1), "annotation-number");
+    const description = element("span");
+    description.append(element("span", label, "milestone-label"), element("small", `${timestamp(annotation.time)} UTC`));
+    eventLink.append(number, description);
+    entry.append(eventLink);
+    annotationKey.append(entry);
     svg.append(svgNode("line", { x1: position, x2: position, y1: margin.top - 8, y2: height - margin.bottom, class: `milestone${kind}` }));
-    const anchor = svgNode("a", { href: link("", annotation.url).href, target: "_blank", rel: "noopener noreferrer" });
-    anchor.append(svgNode("text", { x: position > width / 2 ? position - 8 : position + 8, y: 16 + index * 16, "text-anchor": position > width / 2 ? "end" : "start", class: `milestone-label${kind}` }, annotation.kind ? annotation.label : `${annotation.label} merged`));
+    const top = 4 + annotationRows[index] * 24;
+    const anchor = svgNode("a", { href: eventLink.href, target: "_blank", rel: "noopener noreferrer", "aria-label": `${index + 1}. ${label}. ${timestamp(annotation.time)} UTC` });
+    anchor.append(
+      svgNode("rect", { x: position - 12, y: top, width: 24, height: 20, rx: 5, class: `milestone-badge${kind}` }),
+      svgNode("text", { x: position, y: top + 14, "text-anchor": "middle", class: `milestone-number${kind}` }, String(index + 1)),
+    );
     svg.append(anchor);
   }
   for (const { key, label, color, weightKey } of series) {
@@ -99,5 +125,6 @@ export function drawChart(container, runs, { title, series, count = false, annot
       svg.append(anchor);
     }
   }
+  if (visibleAnnotations.length) container.append(annotationKey);
   container.append(svg, tooltip);
 }

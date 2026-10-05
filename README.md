@@ -24,6 +24,8 @@ Both milestones remain visible together: [Direct CLI launches](https://github.co
 
 **Completion time** also marks the [checkout-wrapper setup regression](https://github.com/Azure/azure-rest-api-specs/pull/46946) (October 1, 18:40:19 UTC) in red and its [removal](https://github.com/Azure/azure-rest-api-specs/pull/47021) (October 5, 16:19:35 UTC) in green. These annotations use actual merge times and do not add comparison panels or new metrics. They are omitted from validation charts because action initialization is outside validation steps. A fix marker does not imply post-fix runs have completed or been collected yet.
 
+Event labels and UTC merge timestamps appear in a numbered key above the plot, matching numbered dashed markers at the actual dates. The key stacks on narrow screens, and nearby marker badges use separate rows rather than overlapping.
+
 Each comparison calculates medians from up to seven successful main pushes immediately before and after its merge, within the selected time range, and displays the actual sample counts. Panels remain visible when the time filter leaves insufficient data for a comparison. No performance percentages are hard-coded. These are observations, not controlled benchmarks; workload and hosted-runner differences still apply.
 
 ## Regular TSV measurements
