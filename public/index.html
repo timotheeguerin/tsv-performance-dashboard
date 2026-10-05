@@ -64,6 +64,7 @@
         </div>
         <div id="chart" aria-live="polite"></div>
         <div class="chart-caption"><span>Dots: individual runs. Lines: daily medians. Click a dot to open its run.</span><span>All dates UTC</span></div>
+        <p id="setup-notice" class="footnote" hidden>Setup markers: <a href="https://github.com/Azure/azure-rest-api-specs/pull/46946">October 1 regression</a> added minutes downloading and extracting the repository as an action archive; <a href="https://github.com/Azure/azure-rest-api-specs/pull/47021">October 5 fix</a> removed that extra download. This overhead affects completion time, not validation work. Markers show merge times; only completed main-branch runs appear as dots.</p>
       </section>
       <div id="comparisons"></div>
       <section class="panel" aria-labelledby="runs-title">

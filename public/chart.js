@@ -65,9 +65,10 @@ export function drawChart(container, runs, { title, series, count = false, annot
   }
   for (const [index, annotation] of visibleAnnotations.entries()) {
     const position = x(Date.parse(annotation.time));
-    svg.append(svgNode("line", { x1: position, x2: position, y1: margin.top - 8, y2: height - margin.bottom, class: "milestone" }));
+    const kind = annotation.kind ? ` milestone-${annotation.kind}` : "";
+    svg.append(svgNode("line", { x1: position, x2: position, y1: margin.top - 8, y2: height - margin.bottom, class: `milestone${kind}` }));
     const anchor = svgNode("a", { href: link("", annotation.url).href, target: "_blank", rel: "noopener noreferrer" });
-    anchor.append(svgNode("text", { x: position > width / 2 ? position - 8 : position + 8, y: 16 + index * 16, "text-anchor": position > width / 2 ? "end" : "start", class: "milestone-label" }, `${annotation.label} merged`));
+    anchor.append(svgNode("text", { x: position > width / 2 ? position - 8 : position + 8, y: 16 + index * 16, "text-anchor": position > width / 2 ? "end" : "start", class: `milestone-label${kind}` }, annotation.kind ? annotation.label : `${annotation.label} merged`));
     svg.append(anchor);
   }
   for (const { key, label, color, weightKey } of series) {

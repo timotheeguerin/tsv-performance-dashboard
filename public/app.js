@@ -1,4 +1,4 @@
-import { comparison, duration, median, metrics, milestones, selectRuns } from "./metrics.js";
+import { comparison, duration, median, metrics, milestones, selectRuns, setupMilestones } from "./metrics.js";
 import { drawChart } from "./chart.js";
 import { $, date, element, filterOptions, link, loadDataset, restoreFilters, showError, timestamp } from "./ui.js";
 
@@ -92,9 +92,11 @@ function render() {
   $("date-range").textContent = runs.length ? `${date(runs[0].createdAt)} \u2013 ${date(runs.at(-1).createdAt)}` : "No matching runs";
   $("chart-title").textContent = metrics[options.metric].label;
   $("metric-description").textContent = metrics[options.metric].description;
+  $("setup-notice").hidden = options.metric !== "elapsed";
   drawChart($("chart"), runs, {
     title: `${metrics[options.metric].label} by run, Linux and Windows`,
-    annotations: milestones,
+    annotations: [...milestones, ...(options.metric === "elapsed" ? setupMilestones : [])]
+      .sort((a, b) => a.time.localeCompare(b.time)),
     series: [{ key: "ubuntu", label: "Linux", color: "linux" }, { key: "windows", label: "Windows", color: "windows" }],
   });
   $("comparisons").replaceChildren(...milestones.toReversed().map((milestone) => renderComparison(runs, milestone)));

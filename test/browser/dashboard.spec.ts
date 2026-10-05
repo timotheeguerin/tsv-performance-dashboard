@@ -155,6 +155,42 @@ test("existing milestone links preserve the metric without hiding either compari
   await expect(page.locator("#comparison-direct-launch")).toContainText("No runs on both sides of the merge");
 });
 
+test("setup regression and fix markers explain completion overhead without changing validation charts", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-06T12:00:00Z"));
+  const runs = ["2026-09-21T00:00:00Z", "2026-10-06T00:00:00Z"]
+    .map((createdAt, index) => ({ ...baseRun, id: index + 1, createdAt }));
+  await page.route("**/data/workflow.json", (route) => route.fulfill({ json: { ...fixture, runs } }));
+  await page.goto("/?days=all&metric=elapsed");
+  await expect(page.locator("#chart .milestone-label")).toHaveText([
+    "Direct CLI launches merged",
+    "Action archive setup regression",
+    "Skip redundant client compilation merged",
+    "Action archive setup removed",
+  ]);
+  const regression = page.locator("#chart text.milestone-regression");
+  const fix = page.locator("#chart text.milestone-fix");
+  await expect(regression.locator("..")).toHaveAttribute("href", /\/pull\/46946$/);
+  await expect(fix.locator("..")).toHaveAttribute("href", /\/pull\/47021$/);
+  expect(await regression.evaluate((node) => getComputedStyle(node).fill))
+    .not.toEqual(await fix.evaluate((node) => getComputedStyle(node).fill));
+  const labels = await page.locator("#chart .milestone-label").evaluateAll((nodes) => nodes.map((node) => {
+    const { top, bottom } = node.getBoundingClientRect();
+    return { top, bottom };
+  }));
+  for (let index = 1; index < labels.length; index++) {
+    expect(labels[index - 1].bottom).toBeLessThan(labels[index].top);
+  }
+  await expect(page.locator("#setup-notice")).toBeVisible();
+  await expect(page.locator("#setup-notice")).toContainText("not validation work");
+  await expect(page.locator("#comparisons section")).toHaveCount(2);
+  for (const metric of ["validation", "slowest"]) {
+    await page.selectOption("#metric", metric);
+    await expect(page.locator("#chart .milestone-label")).toHaveCount(2);
+    await expect(page.locator("#chart .milestone-regression, #chart .milestone-fix")).toHaveCount(0);
+    await expect(page.locator("#setup-notice")).toBeHidden();
+  }
+});
+
 test("API titles render as text and mobile layout fits the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const title = '<img src=x onerror="alert(1)">';

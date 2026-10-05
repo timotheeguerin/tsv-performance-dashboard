@@ -15,6 +15,21 @@ export const milestones = [
   },
 ];
 
+export const setupMilestones = [
+  {
+    time: "2026-10-01T18:40:19Z",
+    label: "Action archive setup regression",
+    kind: "regression",
+    url: "https://github.com/Azure/azure-rest-api-specs/pull/46946",
+  },
+  {
+    time: "2026-10-05T16:19:35Z",
+    label: "Action archive setup removed",
+    kind: "fix",
+    url: "https://github.com/Azure/azure-rest-api-specs/pull/47021",
+  },
+];
+
 export const metrics = {
   elapsed: {
     label: "Completion time",

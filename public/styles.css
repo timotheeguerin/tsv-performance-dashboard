@@ -65,6 +65,10 @@ button, select, a, summary { -webkit-tap-highlight-color: transparent; }
 .chart-tooltip { position: fixed; z-index: 10; width: max-content; max-width: min(320px, calc(100vw - 24px)); padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 4px 16px #0003; font-size: 12px; white-space: pre-line; overflow-wrap: anywhere; pointer-events: none; }
 .milestone { stroke: var(--muted); stroke-dasharray: 4 4; }
 .milestone-label { fill: var(--text); font-size: 11px; font-weight: 600; }
+line.milestone-regression { stroke: var(--red); }
+text.milestone-regression { fill: var(--red); }
+line.milestone-fix { stroke: var(--green); }
+text.milestone-fix { fill: var(--green); }
 .chart-caption { font-size: 11px; color: var(--muted); margin-top: 10px; }
 .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .comparison-row { background: var(--soft); padding: 16px 20px; border-radius: 8px; }

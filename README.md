@@ -22,6 +22,8 @@ Dots represent runs; lines represent UTC daily medians. Complete historical zero
 
 Both milestones remain visible together: [Direct CLI launches](https://github.com/Azure/azure-rest-api-specs/pull/46521) (September 22) and [Skip redundant client compilation](https://github.com/Azure/azure-rest-api-specs/pull/46970) (October 2, 15:55:21 UTC). The chart marks every milestone within its date range, and each has its own comparison panel below, newest first. **Total validation work** is selected by default; explicit URL filters still take precedence.
 
+**Completion time** also marks the [checkout-wrapper setup regression](https://github.com/Azure/azure-rest-api-specs/pull/46946) (October 1, 18:40:19 UTC) in red and its [removal](https://github.com/Azure/azure-rest-api-specs/pull/47021) (October 5, 16:19:35 UTC) in green. These annotations use actual merge times and do not add comparison panels or new metrics. They are omitted from validation charts because action initialization is outside validation steps. A fix marker does not imply post-fix runs have completed or been collected yet.
+
 Each comparison calculates medians from up to seven successful main pushes immediately before and after its merge, within the selected time range, and displays the actual sample counts. Panels remain visible when the time filter leaves insufficient data for a comparison. No performance percentages are hard-coded. These are observations, not controlled benchmarks; workload and hosted-runner differences still apply.
 
 ## Regular TSV measurements
