@@ -122,9 +122,10 @@ export function drawChart(container, runs, { title, series, count = false, annot
     svg.append(anchor);
   }
   for (const { key, label, color, weightKey } of series) {
-    const trendPoints = trend === "rolling"
+    const aggregated = trend === "rolling"
       ? rollingMedianSeries(points, key, annotations)
       : dailySeries(points, key, weightKey);
+    const trendPoints = aggregated.filter((point) => point.time >= minX && point.time <= maxX);
     const path = trendPoints.map((point, index) => {
       if (!index) return `M${x(point.time)},${y(point.value)}`;
       return trend === "rolling"

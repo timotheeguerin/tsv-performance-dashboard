@@ -2,7 +2,7 @@ import { comparison, duration, median, metrics, milestones, selectRuns, setupFix
 import { drawChart } from "./chart.js";
 import { $, date, element, filterOptions, link, loadDataset, restoreFilters, showError, timestamp } from "./ui.js";
 
-const fields = ["days", "metric", "outcome"];
+const fields = ["days", "metric", "outcome", "trend"];
 let dataset;
 let limit = 20;
 
@@ -83,9 +83,12 @@ function renderChart(runs, options) {
   const focused = options.days === "setup-fix";
   $("focus-notice").hidden = !focused;
   $("chart").classList.toggle("focused", focused);
+  $("trend-caption").textContent = options.trend === "daily"
+    ? "Dots: individual runs. Lines: UTC daily medians. Click a dot to open its run."
+    : "Dots: individual runs. Lines: rolling medians of up to 7 runs, restarting at each marked change. Steps occur at run timestamps. Click a dot to open its run.";
   drawChart($("chart"), runs, {
     title: `${metrics[options.metric].label} by run, Linux and Windows${focused ? ", zoomed around archive removal" : ""}`,
-    trend: "rolling",
+    trend: options.trend,
     timeRange: focused ? setupFixRange : undefined,
     zoomY: focused,
     annotations: [...milestones, ...(options.metric === "elapsed" ? setupMilestones : [])]

@@ -29,6 +29,7 @@ nav { display: flex; gap: 24px; padding-top: 10px; white-space: nowrap; }
 .status { color: var(--muted); font-size: 12px; margin-bottom: 24px; }
 .status.error { padding: 14px; color: var(--red); border: 1px solid var(--red); border-radius: 8px; }
 .filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.trend-filters { grid-template-columns: repeat(4, 1fr); }
 .dashboard-tabs { padding: 0; gap: 8px; margin-bottom: 22px; border-bottom: 1px solid var(--border); }
 .dashboard-tabs a { padding: 10px 18px; color: var(--muted); border-bottom: 2px solid transparent; font-weight: 600; }
 .dashboard-tabs a[aria-current] { color: var(--blue); border-color: var(--blue); }

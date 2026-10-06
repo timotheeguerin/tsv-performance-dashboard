@@ -28,7 +28,7 @@
         <a href="./regular.html">Regular TSV</a>
       </nav>
       <div id="status" role="status" class="status">Loading workflow history...</div>
-      <section class="filters" aria-label="Chart filters">
+      <section class="filters trend-filters" aria-label="Chart filters">
         <label>Time range
           <select id="days">
             <option value="7">Last 7 days</option>
@@ -52,6 +52,12 @@
             <option value="all">All completed runs</option>
           </select>
         </label>
+        <label>Trend line
+          <select id="trend">
+            <option value="rolling" selected>Rolling median (7 runs)</option>
+            <option value="daily">Daily median</option>
+          </select>
+        </label>
       </section>
       <section class="cards" aria-label="Summary">
         <article class="card"><p><span class="swatch linux"></span> LINUX MEDIAN</p><strong id="linux-median">--</strong><small id="linux-count">Across selected runs</small></article>
@@ -64,7 +70,7 @@
           <div class="chart-actions"><button id="focus-setup" type="button">Zoom to archive removal</button><div class="legend"><span><i class="swatch linux"></i> Linux</span><span><i class="swatch windows"></i> Windows</span></div></div>
         </div>
         <div id="chart" aria-live="polite"></div>
-        <div class="chart-caption"><span>Dots: individual runs. Lines: rolling medians of up to 7 runs, restarting at each marked change. Steps occur at run timestamps. Click a dot to open its run.</span><span>All dates UTC</span></div>
+        <div class="chart-caption"><span id="trend-caption">Dots: individual runs. Lines: rolling medians of up to 7 runs, restarting at each marked change. Steps occur at run timestamps. Click a dot to open its run.</span><span>All dates UTC</span></div>
         <p id="focus-notice" class="notice footnote" hidden>Focused on 24 hours before and after archive removal. Vertical axis is zoomed and may not start at zero. Select another time range to restore the full-scale chart.</p>
         <p id="setup-notice" class="footnote" hidden>Setup markers: <a href="https://github.com/Azure/azure-rest-api-specs/pull/46946">October 1 regression</a> added minutes downloading and extracting the repository as an action archive; <a href="https://github.com/Azure/azure-rest-api-specs/pull/47021">October 5 fix</a> removed that extra download. This overhead affects completion time, not validation work. Markers show merge times; only completed main-branch runs appear as dots.</p>
       </section>

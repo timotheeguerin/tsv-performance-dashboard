@@ -254,6 +254,71 @@ test("completion trend has a point per run and drops only at the first measured 
   await expect(page.locator("#linux-median")).toHaveText("25m 00s");
 });
 
+test("line style switches between daily and rolling medians without changing runs or summaries", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-06T12:00:00Z"));
+  const samples = [
+    ["2026-10-05T12:00:00Z", 1800],
+    ["2026-10-05T16:19:38Z", 1200],
+    ["2026-10-05T17:00:00Z", 1000],
+    ["2026-10-06T01:00:00Z", 1100],
+  ] as const;
+  const runs = samples.map(([createdAt, elapsed], index) => ({
+    ...baseRun, id: index + 1, createdAt,
+    jobs: jobs().map((job) => ({
+      ...job, startedAt: createdAt, completedAt: new Date(Date.parse(createdAt) + elapsed * 1000).toISOString(),
+    })),
+  }));
+  await page.route("**/data/workflow.json", (route) => route.fulfill({ json: { ...fixture, runs } }));
+  await page.goto("/?days=all&metric=elapsed");
+  await expect(page.getByLabel("Trend line")).toHaveValue("rolling");
+  const dots = await page.locator("#chart circle").evaluateAll((nodes) => nodes.map((node) => node.outerHTML));
+  const summary = await page.locator(".cards").textContent();
+  const rolling = await page.locator("#chart path.series-linux").getAttribute("d");
+  expect(rolling!.match(/H/g)).toHaveLength(3);
+  await page.selectOption("#trend", "daily");
+  await expect(page.locator("#trend-caption")).toContainText("UTC daily medians");
+  await expect(page).toHaveURL(/trend=daily/);
+  await expect(page.locator("#days")).toHaveValue("all");
+  await expect(page.locator("#metric")).toHaveValue("elapsed");
+  expect(await page.locator("#chart path.series-linux").getAttribute("d")).toMatch(/^M[\d.,]+ L[\d.,]+$/);
+  expect(await page.locator("#chart circle").evaluateAll((nodes) => nodes.map((node) => node.outerHTML))).toEqual(dots);
+  expect(await page.locator(".cards").textContent()).toEqual(summary);
+  await page.reload();
+  await expect(page.locator("#trend")).toHaveValue("daily");
+  await expect(page.locator("#trend-caption")).toContainText("UTC daily medians");
+  await page.getByRole("button", { name: "Zoom to archive removal" }).click();
+  await expect(page.locator("#trend")).toHaveValue("daily");
+  await page.selectOption("#days", "all");
+  await page.selectOption("#trend", "rolling");
+  await expect(page.locator("#trend-caption")).toContainText("rolling medians of up to 7 runs");
+  expect(await page.locator("#chart path.series-linux").getAttribute("d")).toBe(rolling);
+  expect(await page.locator(".cards").textContent()).toEqual(summary);
+});
+
+test("focused daily trend stays within the plot while keeping runs from partial boundary days", async ({ page }) => {
+  const runs = ["2026-10-04T18:00:00Z", "2026-10-05T12:00:00Z", "2026-10-06T12:00:00Z"]
+    .map((createdAt, index) => ({ ...baseRun, id: index + 1, createdAt }));
+  await page.route("**/data/workflow.json", (route) => route.fulfill({ json: { ...fixture, runs } }));
+  await page.goto("/?days=setup-fix&metric=elapsed&trend=daily");
+  await expect(page.locator("#run-count")).toHaveText("3");
+  await expect(page.locator("#chart circle")).toHaveCount(6);
+  const xs = await page.locator("#chart path.series-linux").evaluate((node) =>
+    node.getAttribute("d")!.match(/[ML][\d.,-]+/g)!.map((command) => Number(command.slice(1).split(",")[0])));
+  expect(xs).toHaveLength(2);
+  for (const x of xs) {
+    expect(x).toBeGreaterThanOrEqual(60);
+    expect(x).toBeLessThanOrEqual(1080);
+  }
+});
+
+test("unsupported line styles fall back to the rolling default", async ({ page }) => {
+  await page.route("**/data/workflow.json", (route) => route.fulfill({ json: fixture }));
+  await page.goto("/?trend=unknown");
+  await expect(page.locator("#trend")).toHaveValue("rolling");
+  await expect(page).toHaveURL(/trend=rolling/);
+  await expect(page.locator("#trend-caption")).toContainText("rolling medians");
+});
+
 test("archive-removal zoom centers the merge and visibly expands the measured drop", async ({ page }, testInfo) => {
   await page.clock.setFixedTime(new Date("2026-10-06T12:00:00Z"));
   const samples = [
