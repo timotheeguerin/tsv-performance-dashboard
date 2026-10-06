@@ -11,7 +11,7 @@ Both default to successful runs and offer an all-completed-runs filter.
 
 Hover over a chart dot or focus it with the keyboard to see its measured value, UTC run timestamp, outcome, and title. Click the dot to open its GitHub run; press Escape to dismiss the tooltip.
 
-All charts shade Saturdays and Sundays, from Saturday 00:00 to Monday 00:00 UTC. Wider bands also have a "Weekend" label. Shading marks calendar weekends, not assumed missing data: weekend runs remain visible when present. Trend lines connect available measurements across gaps; a straight line with no dots does not mean runs were recorded during that interval. Daily and rolling medians are unchanged.
+All charts subtly shade Saturdays and Sundays, from Saturday 00:00 to Monday 00:00 UTC. Wider bands also have a small, muted "Weekend" label. Shading marks calendar weekends, not assumed missing data: weekend runs remain visible when present. Trend lines connect available measurements across gaps; a straight line with no dots does not mean runs were recorded during that interval. Daily and rolling medians are unchanged.
 
 ## TSV-All measurements
 

@@ -344,6 +344,9 @@ test("weekends are shaded behind lines even when there are no weekend runs", asy
   expect(await band.evaluate((node) => node.outerHTML)).toBe(originalBand);
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });
+    await expect(band).toHaveCSS("opacity", "0.4");
+    await expect(page.locator("#chart .weekend-label")).toHaveCSS("opacity", "0.6");
+    await expect(page.locator("#chart .weekend-label")).toHaveCSS("font-size", "10px");
     expect(await band.evaluate((node) => getComputedStyle(node).fill))
       .not.toEqual(await page.locator(".chart-panel").evaluate((node) => getComputedStyle(node).backgroundColor));
   }

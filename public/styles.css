@@ -55,11 +55,12 @@ button, select, a, summary { -webkit-tap-highlight-color: transparent; }
 .legend { display: flex; gap: 16px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 #chart, .chart { min-height: 260px; }
 #chart svg, .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-.weekend-band { fill: var(--soft); }
+.weekend-band { fill: var(--soft); opacity: .4; }
 .weekend-band, .weekend-label { pointer-events: none; }
-.weekend-swatch { display: inline-block; width: 12px; height: 10px; margin-right: 5px; border: 1px solid var(--border); border-radius: 2px; background: var(--soft); vertical-align: -1px; }
+.weekend-swatch { display: inline-block; width: 12px; height: 10px; margin-right: 5px; border: 1px solid var(--border); border-radius: 2px; background: var(--soft); opacity: .4; vertical-align: -1px; }
 .grid { stroke: var(--border); stroke-dasharray: 3 5; }
 .axis-label { fill: var(--muted); font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.weekend-label { opacity: .6; font-size: 10px; }
 .series-linux { stroke: var(--blue); fill: var(--blue); }
 .series-windows { stroke: var(--orange); fill: var(--orange); }
 .series-count { stroke: var(--green); fill: var(--green); }
