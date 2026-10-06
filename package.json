@@ -6,6 +6,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "build": "node ./scripts/prepare-site.ts",
     "collect": "node scripts/collect.ts",
     "test": "node --test test/*.test.ts",
     "test:browser": "playwright test"

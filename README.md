@@ -42,18 +42,21 @@ PR workloads and tooling revisions differ, so normalized timing is useful contex
 
 ## Refresh and local use
 
-Requires Node.js 24 or later. The browser site has no external dependencies or build step. The collector uses `fflate` to read compressed GitHub log archives.
+Requires Node.js 24 or later. The browser site has no external dependencies. The collector uses `fflate` to read compressed GitHub log archives.
 
 ```sh
 npm ci
 npm test
 GITHUB_TOKEN="$(gh auth token)" npm run collect -- --days 30
-python3 -m http.server 8000 --directory public
+npm run build
+python3 -m http.server 8000 --directory dist
 ```
 
 Open http://localhost:8000. To run browser checks, install Chromium with `npx playwright install chromium`, then run `npm run test:browser`.
 
-The GitHub Actions workflow is scheduled hourly to refresh both datasets, commit the JSON history, and deploy `public/` to GitHub Pages. GitHub may delay or skip scheduled starts, so hourly publication is not guaranteed. A newer refresh cancels any older in-progress run, including a deployment stuck waiting for a runner or environment, rather than queuing behind it indefinitely. The previously published site remains available until a deployment succeeds.
+The build copies `public/` to `dist/` and points both HTML pages at a content-versioned directory containing all JavaScript modules and CSS. A script or stylesheet change gets a new asset path, so cached scripts from an older UI are not reused with the new HTML. Imported modules share that revision; dataset refreshes do not change the asset version. Source files remain unchanged. Browser checks exercise this prepared site.
+
+The GitHub Actions workflow is scheduled hourly to refresh both datasets, commit the JSON history, prepare versioned assets, and deploy `dist/` to GitHub Pages. GitHub may delay or skip scheduled starts, so hourly publication is not guaranteed. A newer refresh cancels any older in-progress run, including a deployment stuck waiting for a runner or environment, rather than queuing behind it indefinitely. The previously published site remains available until a deployment succeeds.
 
 The initial import contains 30 days; historical records are retained. Completed unchanged runs reuse cached timings and project counts. Pending runs continue to be refreshed even if they fall outside the normal two-day lookback.
 

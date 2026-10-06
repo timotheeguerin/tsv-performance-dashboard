@@ -343,6 +343,28 @@ test("data errors are visible, not an empty successful dashboard", async ({ page
   await expect(page.getByRole("alert")).toContainText("HTTP 503");
 });
 
+test("published pages bypass stale unversioned scripts after controls are removed", async ({ page }) => {
+  const errors: string[] = [];
+  let staleRequests = 0;
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.route(/^http:\/\/127\.0\.0\.1:8173\/[^/]+\.(js|css)$/, (route) => {
+    staleRequests++;
+    return route.fulfill({
+      contentType: "application/javascript",
+      body: 'document.getElementById("focus-setup").addEventListener("click", () => {});',
+    });
+  });
+  await page.route("**/data/workflow.json", (route) => route.fulfill({ json: fixture }));
+  await page.goto("/");
+  expect(errors).toEqual([]);
+  expect(staleRequests).toBe(0);
+  await expect(page.locator("#chart svg")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Zoom to archive removal" })).toHaveCount(0);
+  await expect(page.getByLabel("Trend line")).toHaveValue("rolling");
+  await page.selectOption("#trend", "daily");
+  await expect(page.locator("#trend-caption")).toContainText("UTC daily medians");
+});
+
 test("archived data renders without console errors", async ({ page }, testInfo) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
