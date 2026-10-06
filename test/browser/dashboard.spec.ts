@@ -34,6 +34,7 @@ test("filters, per-shard details, and URL state", async ({ page }) => {
   await expect(page.locator("#run-count")).toHaveText("1");
   await expect(page.locator("#linux-median")).toHaveText("80m 00s");
   await expect(page.locator("#metric")).toHaveValue("validation");
+  await expect(page.getByLabel("Trend line")).toHaveValue("daily");
   await expect(page.locator("#comparisons section")).toHaveCount(2);
   await expect(page.locator("#chart circle")).toHaveCount(2);
   await page.locator("#runs summary").click();
@@ -226,7 +227,7 @@ test("completion trend has a point per run and drops only at the first measured 
     })),
   }));
   await page.route("**/data/workflow.json", (route) => route.fulfill({ json: { ...fixture, runs } }));
-  await page.goto("/?days=all&metric=elapsed");
+  await page.goto("/?days=all&metric=elapsed&trend=rolling");
   await expect(page.locator("#chart circle")).toHaveCount(8);
   await expect(page.locator(".chart-caption")).toContainText("rolling medians of up to 7 runs");
   const vertices = await page.locator("#chart path.series-linux").evaluate((node) => {
@@ -270,9 +271,13 @@ test("line style switches between daily and rolling medians without changing run
   }));
   await page.route("**/data/workflow.json", (route) => route.fulfill({ json: { ...fixture, runs } }));
   await page.goto("/?days=all&metric=elapsed");
-  await expect(page.getByLabel("Trend line")).toHaveValue("rolling");
+  await expect(page.getByLabel("Trend line")).toHaveValue("daily");
+  await expect(page.locator("#trend-caption")).toContainText("UTC daily medians");
   const dots = await page.locator("#chart circle").evaluateAll((nodes) => nodes.map((node) => node.outerHTML));
   const summary = await page.locator(".cards").textContent();
+  const daily = await page.locator("#chart path.series-linux").getAttribute("d");
+  expect(daily).toMatch(/^M[\d.,]+ L[\d.,]+$/);
+  await page.selectOption("#trend", "rolling");
   const rolling = await page.locator("#chart path.series-linux").getAttribute("d");
   expect(rolling!.match(/H/g)).toHaveLength(3);
   await page.selectOption("#trend", "daily");
@@ -280,7 +285,7 @@ test("line style switches between daily and rolling medians without changing run
   await expect(page).toHaveURL(/trend=daily/);
   await expect(page.locator("#days")).toHaveValue("all");
   await expect(page.locator("#metric")).toHaveValue("elapsed");
-  expect(await page.locator("#chart path.series-linux").getAttribute("d")).toMatch(/^M[\d.,]+ L[\d.,]+$/);
+  expect(await page.locator("#chart path.series-linux").getAttribute("d")).toBe(daily);
   expect(await page.locator("#chart circle").evaluateAll((nodes) => nodes.map((node) => node.outerHTML))).toEqual(dots);
   expect(await page.locator(".cards").textContent()).toEqual(summary);
   await page.reload();
@@ -290,14 +295,17 @@ test("line style switches between daily and rolling medians without changing run
   await expect(page.locator("#trend-caption")).toContainText("rolling medians of up to 7 runs");
   expect(await page.locator("#chart path.series-linux").getAttribute("d")).toBe(rolling);
   expect(await page.locator(".cards").textContent()).toEqual(summary);
+  await page.reload();
+  await expect(page.getByLabel("Trend line")).toHaveValue("rolling");
+  expect(await page.locator("#chart path.series-linux").getAttribute("d")).toBe(rolling);
 });
 
-test("unsupported line styles fall back to the rolling default", async ({ page }) => {
+test("unsupported line styles fall back to the original daily default", async ({ page }) => {
   await page.route("**/data/workflow.json", (route) => route.fulfill({ json: fixture }));
   await page.goto("/?trend=unknown");
-  await expect(page.locator("#trend")).toHaveValue("rolling");
-  await expect(page).toHaveURL(/trend=rolling/);
-  await expect(page.locator("#trend-caption")).toContainText("rolling medians");
+  await expect(page.locator("#trend")).toHaveValue("daily");
+  await expect(page).toHaveURL(/trend=daily/);
+  await expect(page.locator("#trend-caption")).toContainText("UTC daily medians");
 });
 
 test("removed archive zoom links use the normal time range and preserve line style", async ({ page }) => {
@@ -360,9 +368,9 @@ test("published pages bypass stale unversioned scripts after controls are remove
   expect(staleRequests).toBe(0);
   await expect(page.locator("#chart svg")).toBeVisible();
   await expect(page.getByRole("button", { name: "Zoom to archive removal" })).toHaveCount(0);
-  await expect(page.getByLabel("Trend line")).toHaveValue("rolling");
-  await page.selectOption("#trend", "daily");
-  await expect(page.locator("#trend-caption")).toContainText("UTC daily medians");
+  await expect(page.getByLabel("Trend line")).toHaveValue("daily");
+  await page.selectOption("#trend", "rolling");
+  await expect(page.locator("#trend-caption")).toContainText("rolling medians");
 });
 
 test("archived data renders without console errors", async ({ page }, testInfo) => {
