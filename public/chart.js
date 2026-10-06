@@ -18,6 +18,24 @@ export function dailySeries(runs, key, weightKey) {
   }));
 }
 
+export function rollingMedianSeries(runs, key, annotations = []) {
+  const boundaries = annotations.map((annotation) => Date.parse(annotation.time)).toSorted((a, b) => a - b);
+  const values = [];
+  let boundary = 0;
+  return runs.filter((run) => Number.isFinite(run[key]))
+    .toSorted((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .map((run) => {
+      const time = Date.parse(run.createdAt);
+      while (boundary < boundaries.length && boundaries[boundary] <= time) {
+        values.length = 0;
+        boundary++;
+      }
+      values.push(run[key]);
+      if (values.length > 7) values.shift();
+      return { time, value: median(values) };
+    });
+}
+
 function tickStep(max, count) {
   if (max <= 0) return count ? 1 : 10;
   const rough = max / 5;
@@ -26,7 +44,7 @@ function tickStep(max, count) {
   return count ? Math.max(1, step) : step;
 }
 
-export function drawChart(container, runs, { title, series, count = false, annotations = [], format = duration }) {
+export function drawChart(container, runs, { title, series, count = false, annotations = [], format = duration, trend = "daily" }) {
   container.replaceChildren();
   const points = runs.filter((run) => series.some(({ key }) => Number.isFinite(run[key])));
   if (!points.length) {
@@ -98,8 +116,16 @@ export function drawChart(container, runs, { title, series, count = false, annot
     svg.append(anchor);
   }
   for (const { key, label, color, weightKey } of series) {
-    const daily = dailySeries(points, key, weightKey);
-    svg.append(svgNode("path", { d: daily.map((point, index) => `${index ? "L" : "M"}${x(point.time)},${y(point.value)}`).join(" "), class: `series-${color} trend` }));
+    const trendPoints = trend === "rolling"
+      ? rollingMedianSeries(points, key, annotations)
+      : dailySeries(points, key, weightKey);
+    const path = trendPoints.map((point, index) => {
+      if (!index) return `M${x(point.time)},${y(point.value)}`;
+      return trend === "rolling"
+        ? `H${x(point.time)} V${y(point.value)}`
+        : `L${x(point.time)},${y(point.value)}`;
+    }).join(" ");
+    svg.append(svgNode("path", { d: path, class: `series-${color} trend` }));
     for (const run of points) {
       if (!Number.isFinite(run[key])) continue;
       const description = `${timestamp(run.createdAt)} UTC, ${label}: ${format(run[key])} (${run.selectedConclusion}). ${run.title}`;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { comparison, completeShards, duration, median, milestones, selectRuns, valueForJobs } from "../public/metrics.js";
-import { dailySeries } from "../public/chart.js";
+import { dailySeries, rollingMedianSeries } from "../public/chart.js";
 
 const jobs = (ref = "default", os = "ubuntu") => [0, 1, 2].map((shard) => ({
   ref, os, shard, totalShards: 3, status: "completed", conclusion: "success",
@@ -72,6 +72,68 @@ test("time filter and UTC daily medians are deterministic", () => {
   const selected = selectRuns([run()], { days: "7", outcome: "success", metric: "elapsed" }, Date.parse("2026-10-01"));
   assert.equal(selected.length, 0);
   assert.deepEqual(dailySeries([{ createdAt: "2026-09-22T23:59:00Z", ubuntu: 300 }, { createdAt: "2026-09-22T00:01:00Z", ubuntu: 500 }], "ubuntu"), [{ time: Date.parse("2026-09-22T12:00:00Z"), value: 400 }]);
+});
+test("rolling medians add one point per measured run at its actual timestamp", () => {
+  const runs = [
+    { createdAt: "2026-10-05T15:00:00Z", ubuntu: 300, windows: null },
+    { createdAt: "2026-10-05T16:00:00Z", ubuntu: 500, windows: 0 },
+    { createdAt: "2026-10-05T17:00:00Z", ubuntu: null, windows: 600 },
+    { createdAt: "2026-10-05T18:00:00Z", ubuntu: 100, windows: Infinity },
+  ];
+  assert.deepEqual(rollingMedianSeries(runs, "ubuntu"), [
+    { time: Date.parse(runs[0].createdAt), value: 300 },
+    { time: Date.parse(runs[1].createdAt), value: 400 },
+    { time: Date.parse(runs[3].createdAt), value: 300 },
+  ]);
+  assert.deepEqual(rollingMedianSeries(runs, "windows"), [
+    { time: Date.parse(runs[1].createdAt), value: 0 },
+    { time: Date.parse(runs[2].createdAt), value: 300 },
+  ]);
+  assert.deepEqual(rollingMedianSeries([], "ubuntu"), []);
+  assert.deepEqual(rollingMedianSeries([{ createdAt: runs[0].createdAt, ubuntu: null }], "ubuntu"), []);
+});
+test("rolling medians use only the latest seven valid runs in chronological order", () => {
+  const runs = Array.from({ length: 9 }, (_, index) => ({
+    createdAt: `2026-10-05T${String(index).padStart(2, "0")}:00:00Z`,
+    ubuntu: index < 4 ? 100 : 20,
+  })).toReversed();
+  const original = structuredClone(runs);
+  const points = rollingMedianSeries(runs, "ubuntu");
+  assert.deepEqual(points.map((point) => point.value), [100, 100, 100, 100, 100, 100, 100, 20, 20]);
+  assert.equal(points[0].time, Date.parse("2026-10-05T00:00:00Z"));
+  assert.deepEqual(runs, original);
+});
+test("rolling medians restart exactly at each merge without inventing a merge-time sample", () => {
+  const annotations = [
+    { time: "2026-10-05T16:19:35Z" },
+    { time: "2026-10-01T18:40:19Z" },
+    { time: "2026-10-02T15:55:21Z" },
+  ];
+  const samples = [
+    ["2026-10-01T18:40:18Z", 100],
+    ["2026-10-01T18:40:19Z", 200],
+    ["2026-10-02T15:55:20Z", 220],
+    ["2026-10-02T15:55:21Z", 180],
+    ["2026-10-05T16:19:34Z", 200],
+    ["2026-10-05T16:19:38Z", 120],
+    ["2026-10-05T16:50:41Z", 100],
+  ];
+  const runs = samples.map(([createdAt, ubuntu]) => ({ createdAt, ubuntu }));
+  const points = rollingMedianSeries(runs, "ubuntu", annotations);
+  assert.deepEqual(points.map((point) => point.value), [100, 200, 210, 180, 190, 120, 110]);
+  assert.deepEqual(points.map((point) => point.time), samples.map(([time]) => Date.parse(time)));
+  assert.deepEqual(rollingMedianSeries(runs.slice(0, 5), "ubuntu", annotations), points.slice(0, 5));
+});
+test("merge boundaries between measurements still restart each OS independently", () => {
+  const runs = [
+    { createdAt: "2026-10-05T12:00:00Z", ubuntu: 100, windows: 200 },
+    { createdAt: "2026-10-05T17:00:00Z", ubuntu: null, windows: null },
+    { createdAt: "2026-10-06T12:00:00Z", ubuntu: 80, windows: null },
+    { createdAt: "2026-10-06T13:00:00Z", ubuntu: 60, windows: 120 },
+  ];
+  const annotations = [{ time: "2026-10-05T16:00:00Z" }, { time: "2026-10-05T18:00:00Z" }];
+  assert.deepEqual(rollingMedianSeries(runs, "ubuntu", annotations).map((point) => point.value), [100, 80, 70]);
+  assert.deepEqual(rollingMedianSeries(runs, "windows", annotations).map((point) => point.value), [200, 120]);
 });
 test("merge comparison uses nearest before and first after, at most seven each", () => {
   const runs = Array.from({ length: 10 }, (_, index) => ({ createdAt: `2026-09-21T${String(index).padStart(2, "0")}:00:00Z`, ubuntu: 100 }));

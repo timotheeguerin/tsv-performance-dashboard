@@ -211,6 +211,49 @@ test("setup regression and fix markers explain completion overhead without chang
   }
 });
 
+test("completion trend has a point per run and drops only at the first measured post-fix run", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-06T12:00:00Z"));
+  const samples = [
+    ["2026-10-05T12:00:00Z", 1800],
+    ["2026-10-05T16:19:34Z", 1800],
+    ["2026-10-05T16:19:38Z", 1200],
+    ["2026-10-05T17:00:00Z", 1000],
+  ] as const;
+  const runs = samples.map(([createdAt, elapsed], index) => ({
+    ...baseRun, id: index + 1, createdAt,
+    jobs: jobs().map((job) => ({
+      ...job, startedAt: createdAt, completedAt: new Date(Date.parse(createdAt) + elapsed * 1000).toISOString(),
+    })),
+  }));
+  await page.route("**/data/workflow.json", (route) => route.fulfill({ json: { ...fixture, runs } }));
+  await page.goto("/?days=all&metric=elapsed");
+  await expect(page.locator("#chart circle")).toHaveCount(8);
+  await expect(page.locator(".chart-caption")).toContainText("rolling medians of up to 7 runs");
+  const vertices = await page.locator("#chart path.series-linux").evaluate((node) => {
+    const commands = node.getAttribute("d")!.match(/[MHV][\d.,-]+/g)!;
+    const [x, y] = commands[0].slice(1).split(",").map(Number);
+    return [
+      { x, y },
+      ...commands.slice(1).filter((_, index) => index % 2 === 0).map((command, index) => ({
+        x: Number(command.slice(1)), y: Number(commands[index * 2 + 2].slice(1)),
+      })),
+    ];
+  });
+  const dots = await page.locator("#chart circle.series-linux").evaluateAll((nodes) => nodes.map((node) => ({
+    x: Number(node.getAttribute("cx")), y: Number(node.getAttribute("cy")),
+  })));
+  expect(vertices).toHaveLength(samples.length);
+  expect(vertices.slice(0, 3)).toEqual(dots.slice(0, 3));
+  expect(vertices[3].x).toBe(dots[3].x);
+  expect(vertices[3].y).toBeCloseTo((dots[2].y + dots[3].y) / 2);
+  const fixX = Number(await page.locator("#chart line.milestone-fix").getAttribute("x1"));
+  expect(vertices[1].x).toBeLessThan(fixX);
+  expect(vertices[2].x).toBeGreaterThan(fixX);
+  expect(vertices[2].y).toBeGreaterThan(vertices[1].y);
+  expect(await page.locator("#chart path.series-linux").getAttribute("d")).not.toContain("L");
+  await expect(page.locator("#linux-median")).toHaveText("25m 00s");
+});
+
 test("API titles render as text and mobile layout fits the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const title = '<img src=x onerror="alert(1)">';

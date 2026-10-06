@@ -95,6 +95,7 @@ function render() {
   $("setup-notice").hidden = options.metric !== "elapsed";
   drawChart($("chart"), runs, {
     title: `${metrics[options.metric].label} by run, Linux and Windows`,
+    trend: "rolling",
     annotations: [...milestones, ...(options.metric === "elapsed" ? setupMilestones : [])]
       .sort((a, b) => a.time.localeCompare(b.time)),
     series: [{ key: "ubuntu", label: "Linux", color: "linux" }, { key: "windows", label: "Windows", color: "windows" }],
