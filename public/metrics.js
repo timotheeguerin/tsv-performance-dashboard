@@ -30,9 +30,6 @@ export const setupMilestones = [
   },
 ];
 
-const setupFixTime = Date.parse(setupMilestones.find((milestone) => milestone.kind === "fix").time);
-export const setupFixRange = { start: setupFixTime - 86_400_000, end: setupFixTime + 86_400_000 };
-
 export const metrics = {
   elapsed: {
     label: "Completion time",
@@ -88,9 +85,8 @@ export function valueForJobs(jobs, metric) {
 }
 
 export function selectRuns(runs, { days, outcome, metric }, now = Date.now()) {
-  const cutoff = days === "setup-fix" ? setupFixRange.start : days === "all" ? -Infinity : now - Number(days) * 86_400_000;
-  const end = days === "setup-fix" ? setupFixRange.end : Infinity;
-  return runs.filter((run) => Date.parse(run.createdAt) >= cutoff && Date.parse(run.createdAt) <= end && run.status === "completed")
+  const cutoff = days === "all" ? -Infinity : now - Number(days) * 86_400_000;
+  return runs.filter((run) => Date.parse(run.createdAt) >= cutoff && run.status === "completed")
     .map((run) => {
       const jobs = mainJobs(run);
       const complete = ["ubuntu", "windows"].every((os) => completeShards(jobs.filter((job) => job.os === os)));

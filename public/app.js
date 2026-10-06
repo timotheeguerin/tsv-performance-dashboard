@@ -1,4 +1,4 @@
-import { comparison, duration, median, metrics, milestones, selectRuns, setupFixRange, setupMilestones } from "./metrics.js";
+import { comparison, duration, median, metrics, milestones, selectRuns, setupMilestones } from "./metrics.js";
 import { drawChart } from "./chart.js";
 import { $, date, element, filterOptions, link, loadDataset, restoreFilters, showError, timestamp } from "./ui.js";
 
@@ -79,24 +79,6 @@ function renderRuns(runs) {
   $("more").hidden = runs.length <= limit;
 }
 
-function renderChart(runs, options) {
-  const focused = options.days === "setup-fix";
-  $("focus-notice").hidden = !focused;
-  $("chart").classList.toggle("focused", focused);
-  $("trend-caption").textContent = options.trend === "daily"
-    ? "Dots: individual runs. Lines: UTC daily medians. Click a dot to open its run."
-    : "Dots: individual runs. Lines: rolling medians of up to 7 runs, restarting at each marked change. Steps occur at run timestamps. Click a dot to open its run.";
-  drawChart($("chart"), runs, {
-    title: `${metrics[options.metric].label} by run, Linux and Windows${focused ? ", zoomed around archive removal" : ""}`,
-    trend: options.trend,
-    timeRange: focused ? setupFixRange : undefined,
-    zoomY: focused,
-    annotations: [...milestones, ...(options.metric === "elapsed" ? setupMilestones : [])]
-      .sort((a, b) => a.time.localeCompare(b.time)),
-    series: [{ key: "ubuntu", label: "Linux", color: "linux" }, { key: "windows", label: "Windows", color: "windows" }],
-  });
-}
-
 function render() {
   if (!dataset) return;
   const options = filterOptions(fields);
@@ -111,29 +93,23 @@ function render() {
   $("chart-title").textContent = metrics[options.metric].label;
   $("metric-description").textContent = metrics[options.metric].description;
   $("setup-notice").hidden = options.metric !== "elapsed";
-  renderChart(runs, options);
+  $("trend-caption").textContent = options.trend === "daily"
+    ? "Dots: individual runs. Lines: UTC daily medians. Click a dot to open its run."
+    : "Dots: individual runs. Lines: rolling medians of up to 7 runs, restarting at each marked change. Steps occur at run timestamps. Click a dot to open its run.";
+  drawChart($("chart"), runs, {
+    title: `${metrics[options.metric].label} by run, Linux and Windows`,
+    trend: options.trend,
+    annotations: [...milestones, ...(options.metric === "elapsed" ? setupMilestones : [])]
+      .sort((a, b) => a.time.localeCompare(b.time)),
+    series: [{ key: "ubuntu", label: "Linux", color: "linux" }, { key: "windows", label: "Windows", color: "windows" }],
+  });
   $("comparisons").replaceChildren(...milestones.toReversed().map((milestone) => renderComparison(runs, milestone)));
   renderRuns(runs);
 }
 
 async function load() {
   restoreFilters(fields, () => { limit = 20; render(); });
-  $("focus-setup").addEventListener("click", () => {
-    $("days").value = "setup-fix";
-    $("metric").value = "elapsed";
-    limit = 20;
-    render();
-  });
   $("more").addEventListener("click", () => { limit += 20; render(); });
-  let resizeFrame;
-  window.addEventListener("resize", () => {
-    cancelAnimationFrame(resizeFrame);
-    resizeFrame = requestAnimationFrame(() => {
-      if (!dataset || $("days").value !== "setup-fix") return;
-      const options = filterOptions(fields);
-      renderChart(selectRuns(dataset.runs, options), options);
-    });
-  });
   dataset = await loadDataset("./data/workflow.json");
   render();
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { comparison, completeShards, duration, median, milestones, selectRuns, setupFixRange, valueForJobs } from "../public/metrics.js";
+import { comparison, completeShards, duration, median, milestones, selectRuns, valueForJobs } from "../public/metrics.js";
 import { dailySeries, rollingMedianSeries } from "../public/chart.js";
 
 const jobs = (ref = "default", os = "ubuntu") => [0, 1, 2].map((shard) => ({
@@ -72,14 +72,6 @@ test("time filter and UTC daily medians are deterministic", () => {
   const selected = selectRuns([run()], { days: "7", outcome: "success", metric: "elapsed" }, Date.parse("2026-10-01"));
   assert.equal(selected.length, 0);
   assert.deepEqual(dailySeries([{ createdAt: "2026-09-22T23:59:00Z", ubuntu: 300 }, { createdAt: "2026-09-22T00:01:00Z", ubuntu: 500 }], "ubuntu"), [{ time: Date.parse("2026-09-22T12:00:00Z"), value: 400 }]);
-});
-test("archive-removal focus uses a fixed inclusive 48-hour window, not the current date", () => {
-  assert.equal(setupFixRange.end - setupFixRange.start, 48 * 3_600_000);
-  const times = [setupFixRange.start - 1000, setupFixRange.start, setupFixRange.end, setupFixRange.end + 1000];
-  const runs = times.map((time, index) => run({ id: index + 1, createdAt: new Date(time).toISOString() }));
-  const selected = selectRuns(runs, { days: "setup-fix", outcome: "success", metric: "elapsed" }, Date.parse("2027-01-01"));
-  assert.deepEqual(selected.map((run) => run.id), [2, 3]);
-  assert.equal(selectRuns(runs, { days: "all", outcome: "success", metric: "elapsed" }).length, 4);
 });
 test("rolling medians add one point per measured run at its actual timestamp", () => {
   const runs = [
