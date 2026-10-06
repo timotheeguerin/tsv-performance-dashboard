@@ -333,7 +333,7 @@ test("weekends are shaded behind lines even when there are no weekend runs", asy
   await expect(band).toHaveAttribute("width", "510");
   await expect(band).toHaveAttribute("y", "32");
   await expect(band).toHaveAttribute("height", "234");
-  await expect(page.locator("#chart .weekend-label")).toHaveText("Weekend");
+  await expect(page.locator("#chart svg").getByText("Weekend", { exact: true })).toHaveCount(0);
   await expect(page.locator(".chart-caption")).toContainText("Weekends shaded");
   await expect(page.locator("#chart circle")).toHaveCount(4);
   await expect(page.locator("#run-count")).toHaveText("2");
@@ -345,8 +345,6 @@ test("weekends are shaded behind lines even when there are no weekend runs", asy
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });
     await expect(band).toHaveCSS("opacity", "0.4");
-    await expect(page.locator("#chart .weekend-label")).toHaveCSS("opacity", "0.6");
-    await expect(page.locator("#chart .weekend-label")).toHaveCSS("font-size", "10px");
     expect(await band.evaluate((node) => getComputedStyle(node).fill))
       .not.toEqual(await page.locator(".chart-panel").evaluate((node) => getComputedStyle(node).backgroundColor));
   }

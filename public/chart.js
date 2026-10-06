@@ -102,12 +102,6 @@ export function drawChart(container, runs, { title, series, count = false, annot
       x: left, y: margin.top, width: bandWidth, height: height - margin.top - margin.bottom,
       class: "weekend-band", "aria-hidden": "true",
     }));
-    if (bandWidth >= 60) {
-      svg.append(svgNode("text", {
-        x: left + bandWidth / 2, y: margin.top + 14, "text-anchor": "middle",
-        class: "axis-label weekend-label", "aria-hidden": "true",
-      }, "Weekend"));
-    }
   }
   for (let value = 0; value <= maxY + tick / 100; value += tick) {
     svg.append(svgNode("line", { x1: margin.left, y1: y(value), x2: width - margin.right, y2: y(value), class: "grid" }));

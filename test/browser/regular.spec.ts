@@ -84,6 +84,7 @@ test("all regular charts highlight weekends without changing the measured sample
     await expect(page.locator(`#${chart} circle`)).toHaveCount(2);
   }
   await expect(page.locator("#validation-average")).toHaveText("30.0s");
+  await expect(page.locator(".chart svg").getByText("Weekend", { exact: true })).toHaveCount(0);
   await expect(page.locator(".chart-caption")).toContainText(["Weekends shaded", "Weekends shaded", "Weekends shaded"]);
 });
 
