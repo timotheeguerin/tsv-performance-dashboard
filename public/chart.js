@@ -36,6 +36,21 @@ export function rollingMedianSeries(runs, key, annotations = []) {
     });
 }
 
+export function weekendRanges(min, max) {
+  const day = 86_400_000;
+  const ranges = [];
+  for (let time = Math.floor(min / day) * day; time < max; time += day) {
+    const weekday = new Date(time).getUTCDay();
+    if (weekday !== 0 && weekday !== 6) continue;
+    const start = Math.max(min, time), end = Math.min(max, time + day);
+    if (start >= end) continue;
+    const previous = ranges.at(-1);
+    if (previous?.end === time) previous.end = end;
+    else ranges.push({ start, end });
+  }
+  return ranges;
+}
+
 function tickStep(max, count) {
   if (max <= 0) return count ? 1 : 10;
   const rough = max / 5;
@@ -81,6 +96,19 @@ export function drawChart(container, runs, { title, series, count = false, annot
     tooltip.style.top = `${Math.max(12, clientY + bounds.height + 24 <= window.innerHeight
       ? clientY + 12 : clientY - bounds.height - 12)}px`;
   };
+  for (const range of weekendRanges(minX, maxX)) {
+    const left = x(range.start), bandWidth = x(range.end) - left;
+    svg.append(svgNode("rect", {
+      x: left, y: margin.top, width: bandWidth, height: height - margin.top - margin.bottom,
+      class: "weekend-band", "aria-hidden": "true",
+    }));
+    if (bandWidth >= 60) {
+      svg.append(svgNode("text", {
+        x: left + bandWidth / 2, y: margin.top + 14, "text-anchor": "middle",
+        class: "axis-label weekend-label", "aria-hidden": "true",
+      }, "Weekend"));
+    }
+  }
   for (let value = 0; value <= maxY + tick / 100; value += tick) {
     svg.append(svgNode("line", { x1: margin.left, y1: y(value), x2: width - margin.right, y2: y(value), class: "grid" }));
     const label = count ? String(Math.round(value)) : value >= 60 ? `${+(value / 60).toFixed(1)}m` : `${+value.toFixed(1)}s`;

@@ -322,6 +322,34 @@ test("removed archive zoom links use the normal time range and preserve line sty
   await expect(page).toHaveURL(/days=30&metric=elapsed&outcome=success&trend=daily/);
 });
 
+test("weekends are shaded behind lines even when there are no weekend runs", async ({ page }, testInfo) => {
+  const runs = ["2026-10-02T12:00:00Z", "2026-10-05T12:00:00Z"]
+    .map((createdAt, index) => ({ ...baseRun, id: index + 1, createdAt }));
+  await page.route("**/data/workflow.json", (route) => route.fulfill({ json: { ...fixture, runs } }));
+  await page.goto("/?days=all&metric=elapsed");
+  const band = page.locator("#chart .weekend-band");
+  await expect(band).toHaveCount(1);
+  await expect(band).toHaveAttribute("x", "315");
+  await expect(band).toHaveAttribute("width", "510");
+  await expect(band).toHaveAttribute("y", "32");
+  await expect(band).toHaveAttribute("height", "234");
+  await expect(page.locator("#chart .weekend-label")).toHaveText("Weekend");
+  await expect(page.locator(".chart-caption")).toContainText("Weekends shaded");
+  await expect(page.locator("#chart circle")).toHaveCount(4);
+  await expect(page.locator("#run-count")).toHaveText("2");
+  expect(await band.evaluate((node) =>
+    [...node.parentElement!.children].indexOf(node) < [...node.parentElement!.children].findIndex((child) => child.classList.contains("trend")))).toBe(true);
+  const originalBand = await band.evaluate((node) => node.outerHTML);
+  await page.selectOption("#trend", "rolling");
+  expect(await band.evaluate((node) => node.outerHTML)).toBe(originalBand);
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    expect(await band.evaluate((node) => getComputedStyle(node).fill))
+      .not.toEqual(await page.locator(".chart-panel").evaluate((node) => getComputedStyle(node).backgroundColor));
+  }
+  await page.locator(".chart-panel").screenshot({ path: testInfo.outputPath("weekend-gap.png") });
+});
+
 test("API titles render as text and mobile layout fits the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const title = '<img src=x onerror="alert(1)">';

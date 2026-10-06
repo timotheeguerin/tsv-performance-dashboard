@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { comparison, completeShards, duration, median, milestones, selectRuns, valueForJobs } from "../public/metrics.js";
-import { dailySeries, rollingMedianSeries } from "../public/chart.js";
+import { dailySeries, rollingMedianSeries, weekendRanges } from "../public/chart.js";
 
 const jobs = (ref = "default", os = "ubuntu") => [0, 1, 2].map((shard) => ({
   ref, os, shard, totalShards: 3, status: "completed", conclusion: "success",
@@ -72,6 +72,34 @@ test("time filter and UTC daily medians are deterministic", () => {
   const selected = selectRuns([run()], { days: "7", outcome: "success", metric: "elapsed" }, Date.parse("2026-10-01"));
   assert.equal(selected.length, 0);
   assert.deepEqual(dailySeries([{ createdAt: "2026-09-22T23:59:00Z", ubuntu: 300 }, { createdAt: "2026-09-22T00:01:00Z", ubuntu: 500 }], "ubuntu"), [{ time: Date.parse("2026-09-22T12:00:00Z"), value: 400 }]);
+});
+test("weekend shading covers UTC Saturdays and Sundays, including gaps without runs", () => {
+  const start = Date.parse("2026-10-02T00:00:00Z");
+  assert.deepEqual(weekendRanges(start, Date.parse("2026-10-06T00:00:00Z")), [
+    { start: Date.parse("2026-10-03T00:00:00Z"), end: Date.parse("2026-10-05T00:00:00Z") },
+  ]);
+  assert.deepEqual(weekendRanges(start, Date.parse("2026-10-13T00:00:00Z")), [
+    { start: Date.parse("2026-10-03T00:00:00Z"), end: Date.parse("2026-10-05T00:00:00Z") },
+    { start: Date.parse("2026-10-10T00:00:00Z"), end: Date.parse("2026-10-12T00:00:00Z") },
+  ]);
+  assert.deepEqual(weekendRanges(Date.parse("2026-10-05T00:00:00Z"), Date.parse("2026-10-07T00:00:00Z")), []);
+  assert.deepEqual(weekendRanges(start, start), []);
+  const saturday = Date.parse("2026-10-03T12:00:00Z");
+  assert.deepEqual(weekendRanges(saturday, saturday), []);
+});
+test("weekend shading clips boundary weekends and stays UTC across DST and month changes", () => {
+  assert.deepEqual(weekendRanges(Date.parse("2026-10-04T12:00:00Z"), Date.parse("2026-10-05T06:00:00Z")), [
+    { start: Date.parse("2026-10-04T12:00:00Z"), end: Date.parse("2026-10-05T00:00:00Z") },
+  ]);
+  assert.deepEqual(weekendRanges(Date.parse("2026-10-03T00:00:00Z"), Date.parse("2026-10-04T12:00:00Z")), [
+    { start: Date.parse("2026-10-03T00:00:00Z"), end: Date.parse("2026-10-04T12:00:00Z") },
+  ]);
+  assert.deepEqual(weekendRanges(Date.parse("2026-10-30T00:00:00Z"), Date.parse("2026-11-03T00:00:00Z")), [
+    { start: Date.parse("2026-10-31T00:00:00Z"), end: Date.parse("2026-11-02T00:00:00Z") },
+  ]);
+  const dst = weekendRanges(Date.parse("2026-03-06T00:00:00Z"), Date.parse("2026-03-10T00:00:00Z"));
+  assert.deepEqual(dst, [{ start: Date.parse("2026-03-07T00:00:00Z"), end: Date.parse("2026-03-09T00:00:00Z") }]);
+  assert.equal(dst[0].end - dst[0].start, 48 * 3_600_000);
 });
 test("rolling medians add one point per measured run at its actual timestamp", () => {
   const runs = [

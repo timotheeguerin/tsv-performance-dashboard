@@ -72,6 +72,21 @@ test("regular chart tooltips use each metric's units and stay independent", asyn
   }
 });
 
+test("all regular charts highlight weekends without changing the measured samples", async ({ page }) => {
+  const runs = ["2026-10-02T12:00:00Z", "2026-10-05T12:00:00Z"]
+    .map((createdAt, index) => ({ ...base, id: index + 1, createdAt }));
+  await page.route("**/data/regular.json", (route) => route.fulfill({ json: { ...fixture, runs } }));
+  await page.goto("/regular.html?days=all");
+  for (const chart of ["validation-chart", "average-chart", "count-chart"]) {
+    await expect(page.locator(`#${chart} .weekend-band`)).toHaveCount(1);
+    await expect(page.locator(`#${chart} .weekend-band`)).toHaveAttribute("x", "315");
+    await expect(page.locator(`#${chart} .weekend-band`)).toHaveAttribute("width", "510");
+    await expect(page.locator(`#${chart} circle`)).toHaveCount(2);
+  }
+  await expect(page.locator("#validation-average")).toHaveText("30.0s");
+  await expect(page.locator(".chart-caption")).toContainText(["Weekends shaded", "Weekends shaded", "Weekends shaded"]);
+});
+
 test("changing setup and job duration does not move validation charts or summaries", async ({ page }) => {
   let slowSetup = false;
   await page.route("**/data/regular.json", (route) => route.fulfill({
