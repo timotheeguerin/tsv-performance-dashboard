@@ -254,6 +254,72 @@ test("completion trend has a point per run and drops only at the first measured 
   await expect(page.locator("#linux-median")).toHaveText("25m 00s");
 });
 
+test("archive-removal zoom centers the merge and visibly expands the measured drop", async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date("2026-10-06T12:00:00Z"));
+  const samples = [
+    ["2026-10-01T12:00:00Z", 1800, 3000],
+    ["2026-10-05T12:00:00Z", 1740, 2400],
+    ["2026-10-05T16:19:38Z", 1620, 2100],
+    ["2026-10-05T17:00:00Z", 1620, 2100],
+    ["2026-10-06T17:00:00Z", 1600, 2100],
+  ] as const;
+  const runs = samples.map(([createdAt, linux, windows], index) => ({
+    ...baseRun, id: index + 1, createdAt,
+    jobs: jobs().map((job) => ({
+      ...job, startedAt: createdAt,
+      completedAt: new Date(Date.parse(createdAt) + (job.os === "ubuntu" ? linux : windows) * 1000).toISOString(),
+    })),
+  }));
+  await page.route("**/data/workflow.json", (route) => route.fulfill({ json: { ...fixture, runs } }));
+  await page.goto("/?days=all&metric=elapsed&outcome=all");
+  const normal = await page.locator("#chart circle.series-windows").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("cy"))));
+  const normalDrop = Math.abs(normal[2] - normal[1]);
+  await page.getByRole("button", { name: "Zoom to archive removal" }).click();
+  await expect(page.locator("#days")).toHaveValue("setup-fix");
+  await expect(page.locator("#metric")).toHaveValue("elapsed");
+  await expect(page.locator("#outcome")).toHaveValue("all");
+  await expect(page).toHaveURL(/days=setup-fix&metric=elapsed&outcome=all/);
+  await expect(page.locator("#run-count")).toHaveText("3");
+  await expect(page.locator("#focus-notice")).toContainText("may not start at zero");
+  await expect(page.locator("#chart .milestone-label")).toHaveText("Action archive setup removed");
+  await expect(page.locator("#chart svg")).toHaveAccessibleName("Completion time by run, Linux and Windows, zoomed around archive removal");
+  const focused = await page.locator("#chart circle.series-windows").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("cy"))));
+  expect(Math.abs(focused[1] - focused[0])).toBeGreaterThan(normalDrop * 2);
+  await expect(page.locator("#chart text.axis-label").first()).not.toHaveText("0s");
+  expect(Number(await page.locator("#chart line.milestone-fix").getAttribute("x1"))).toBe(570);
+  await expect(page.locator("#chart text.axis-label")).toContainText(["Oct 4 16:19", "Oct 6 16:19"]);
+  await page.screenshot({ path: testInfo.outputPath("archive-focus-desktop.png"), fullPage: true });
+  await page.reload();
+  await expect(page.locator("#days")).toHaveValue("setup-fix");
+  await expect(page.locator("#focus-notice")).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator("#chart svg")).toHaveAttribute("viewBox", /0 0 3\d\d 300/);
+  expect(await page.locator("#chart").evaluate((chart) => {
+    const bounds = chart.getBoundingClientRect();
+    return [...chart.querySelectorAll("circle")].every((dot) => {
+      const point = dot.getBoundingClientRect();
+      return point.left >= bounds.left && point.right <= bounds.right;
+    });
+  })).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("archive-focus-mobile.png"), fullPage: true });
+  await page.selectOption("#metric", "validation");
+  await expect(page.locator("#chart line.milestone-fix")).toHaveCount(0);
+  await page.getByRole("button", { name: "Zoom to archive removal" }).click();
+  await expect(page.locator("#metric")).toHaveValue("elapsed");
+  await page.selectOption("#days", "all");
+  await expect(page.locator("#focus-notice")).toBeHidden();
+  await expect(page.locator("#chart text.axis-label").first()).toHaveText("0s");
+});
+
+test("archive-removal focus with no measurements still reports the empty window", async ({ page }) => {
+  await page.route("**/data/workflow.json", (route) => route.fulfill({ json: { ...fixture, runs: [] } }));
+  await page.goto("/?days=setup-fix&metric=elapsed");
+  await expect(page.locator("#chart")).toContainText("No complete measurements");
+  await expect(page.locator("#run-count")).toHaveText("0");
+  await expect(page.locator("#focus-notice")).toBeVisible();
+});
+
 test("API titles render as text and mobile layout fits the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const title = '<img src=x onerror="alert(1)">';
@@ -294,9 +360,23 @@ test("archived data renders without console errors", async ({ page }, testInfo) 
   await expect(page.locator("#runs details").first().locator("tbody tr")).toHaveCount(6);
   await page.locator("#runs summary").first().click();
   await page.screenshot({ path: testInfo.outputPath("desktop.png"), fullPage: true });
+  await page.selectOption("#days", "all");
+  await page.selectOption("#metric", "elapsed");
+  const measuredDrop = () => page.locator("#chart").evaluate((chart) => {
+    const fixX = Number(chart.querySelector("line.milestone-fix")!.getAttribute("x1"));
+    const dots = [...chart.querySelectorAll("circle.series-windows")];
+    const after = dots.findIndex((dot) => Number(dot.getAttribute("cx")) >= fixX);
+    return Math.abs(Number(dots[after].getAttribute("cy")) - Number(dots[after - 1].getAttribute("cy")));
+  });
+  const normalDrop = await measuredDrop();
+  await page.getByRole("button", { name: "Zoom to archive removal" }).click();
+  expect(await measuredDrop()).toBeGreaterThan(normalDrop * 2);
+  await page.locator(".chart-panel").screenshot({ path: testInfo.outputPath("archive-focus-real-desktop.png") });
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator("#chart svg")).toHaveAttribute("viewBox", /0 0 3\d\d 300/);
   await page.emulateMedia({ colorScheme: "dark" });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.locator(".chart-panel").screenshot({ path: testInfo.outputPath("archive-focus-real-mobile.png") });
   await page.screenshot({ path: testInfo.outputPath("mobile.png"), fullPage: true });
   expect(errors).toEqual([]);
 });

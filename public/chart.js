@@ -44,22 +44,26 @@ function tickStep(max, count) {
   return count ? Math.max(1, step) : step;
 }
 
-export function drawChart(container, runs, { title, series, count = false, annotations = [], format = duration, trend = "daily" }) {
+export function drawChart(container, runs, { title, series, count = false, annotations = [], format = duration, trend = "daily", timeRange, zoomY = false }) {
   container.replaceChildren();
   const points = runs.filter((run) => series.some(({ key }) => Number.isFinite(run[key])));
   if (!points.length) {
     container.append(element("p", "No complete measurements match these filters.", "empty"));
     return;
   }
-  const width = 1100, height = 300;
-  const minX = Math.floor(Date.parse(points[0].createdAt) / 86_400_000) * 86_400_000;
-  const maxX = Math.floor(Date.parse(points.at(-1).createdAt) / 86_400_000 + 1) * 86_400_000;
+  const width = timeRange ? Math.max(300, Math.min(1100, container.clientWidth)) : 1100, height = 300;
+  const minX = timeRange?.start ?? Math.floor(Date.parse(points[0].createdAt) / 86_400_000) * 86_400_000;
+  const maxX = timeRange?.end ?? Math.floor(Date.parse(points.at(-1).createdAt) / 86_400_000 + 1) * 86_400_000;
   const visibleAnnotations = annotations.filter((annotation) => Date.parse(annotation.time) >= minX && Date.parse(annotation.time) <= maxX)
     .toSorted((a, b) => a.time.localeCompare(b.time));
   const margin = { left: 60, right: 20, top: 32, bottom: 34 };
   const largest = points.reduce((max, run) => Math.max(max, ...series.map(({ key }) => run[key] ?? 0)), 0);
-  const tick = tickStep(largest, count);
-  const maxY = Math.max(tick, Math.ceil(largest / tick) * tick);
+  const smallest = zoomY
+    ? points.reduce((min, run) => Math.min(min, ...series.map(({ key }) => Number.isFinite(run[key]) ? run[key] : Infinity)), Infinity)
+    : 0;
+  const tick = tickStep(largest - smallest, count);
+  const minY = Math.max(0, Math.floor(smallest / tick) * tick);
+  const maxY = Math.max(minY + tick, Math.ceil(largest / tick) * tick);
   const x = (value) => margin.left + (value - minX) / (maxX - minX) * (width - margin.left - margin.right);
   const rowEnds = [];
   const annotationRows = visibleAnnotations.map((annotation) => {
@@ -70,7 +74,7 @@ export function drawChart(container, runs, { title, series, count = false, annot
     return row;
   });
   margin.top += Math.max(0, rowEnds.length - 1) * 24;
-  const y = (value) => height - margin.bottom - value / maxY * (height - margin.top - margin.bottom);
+  const y = (value) => height - margin.bottom - (value - minY) / (maxY - minY) * (height - margin.top - margin.bottom);
   const svg = svgNode("svg", { viewBox: `0 0 ${width} ${height}`, role: "group", "aria-label": title });
   const tooltip = element("div", undefined, "chart-tooltip");
   tooltip.setAttribute("role", "tooltip");
@@ -81,15 +85,17 @@ export function drawChart(container, runs, { title, series, count = false, annot
     tooltip.style.top = `${Math.max(12, clientY + bounds.height + 24 <= window.innerHeight
       ? clientY + 12 : clientY - bounds.height - 12)}px`;
   };
-  for (let value = 0; value <= maxY + tick / 100; value += tick) {
+  for (let value = minY; value <= maxY + tick / 100; value += tick) {
     svg.append(svgNode("line", { x1: margin.left, y1: y(value), x2: width - margin.right, y2: y(value), class: "grid" }));
     const label = count ? String(Math.round(value)) : value >= 60 ? `${+(value / 60).toFixed(1)}m` : `${+value.toFixed(1)}s`;
     svg.append(svgNode("text", { x: margin.left - 12, y: y(value) + 4, "text-anchor": "end", class: "axis-label" }, label));
   }
-  for (let index = 0; index <= 6; index++) {
-    const time = minX + (maxX - minX) * index / 6;
-    const label = maxX - minX <= 86_400_000 ? new Date(time).toISOString().slice(11, 16) : date(time);
-    svg.append(svgNode("text", { x: x(time), y: height - 8, "text-anchor": index === 0 ? "start" : index === 6 ? "end" : "middle", class: "axis-label" }, label));
+  const xTicks = width < 600 ? 2 : 6;
+  for (let index = 0; index <= xTicks; index++) {
+    const time = minX + (maxX - minX) * index / xTicks;
+    const hour = new Date(time).toISOString().slice(11, 16);
+    const label = timeRange ? `${date(time)} ${hour}` : maxX - minX <= 86_400_000 ? hour : date(time);
+    svg.append(svgNode("text", { x: x(time), y: height - 8, "text-anchor": index === 0 ? "start" : index === xTicks ? "end" : "middle", class: "axis-label" }, label));
   }
   const annotationKey = element("ol", undefined, "chart-annotations");
   annotationKey.setAttribute("aria-label", "Chart events");

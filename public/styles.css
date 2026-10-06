@@ -52,8 +52,11 @@ button, select, a, summary { -webkit-tap-highlight-color: transparent; }
 .panel-heading p { margin-top: 4px; color: var(--muted); font-size: 12px; max-width: 740px; }
 .panel-heading > a { white-space: nowrap; font-size: 12px; }
 .legend { display: flex; gap: 16px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.chart-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; flex-shrink: 0; }
+.chart-actions button { margin-top: 0; font-size: 12px; }
 #chart, .chart { min-height: 260px; }
 #chart svg, .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+#chart.focused svg { min-width: 0; }
 .grid { stroke: var(--border); stroke-dasharray: 3 5; }
 .axis-label { fill: var(--muted); font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .series-linux { stroke: var(--blue); fill: var(--blue); }
@@ -130,6 +133,7 @@ footer p + p { margin-top: 4px; }
   .card small { font-size: 10px; }
   .panel { padding: 16px; }
   .panel-heading { flex-wrap: wrap; gap: 10px; }
+  .chart-actions { align-items: flex-start; }
   #chart, .chart { min-height: 180px; overflow-x: auto; }
   #chart svg, .chart svg { min-width: 620px; }
   .chart-annotations { grid-template-columns: 1fr; }
