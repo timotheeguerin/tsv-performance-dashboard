@@ -35,7 +35,7 @@ test("filters, per-shard details, and URL state", async ({ page }) => {
   await expect(page.locator("#linux-median")).toHaveText("80m 00s");
   await expect(page.locator("#metric")).toHaveValue("validation");
   await expect(page.getByLabel("Trend line")).toHaveValue("daily");
-  await expect(page.locator("#comparisons section")).toHaveCount(2);
+  await expect(page.locator("#comparisons section")).toHaveCount(3);
   await expect(page.locator("#chart circle")).toHaveCount(2);
   await page.locator("#runs summary").click();
   await expect(page.locator("#runs tbody tr")).toHaveCount(6);
@@ -91,7 +91,7 @@ test("chart points show their time on hover and keyboard focus without blocking 
   await expect(page.getByRole("tooltip")).toContainText("Linux: 80m 00s");
 });
 
-test("both milestones and their independent comparisons stay visible together", async ({ page }) => {
+test("historical milestones and their independent comparisons stay visible together", async ({ page }) => {
   await page.clock.setFixedTime(new Date("2026-10-03T12:00:00Z"));
   const samples = [
     ["2026-09-21T00:00:00Z", 100],
@@ -113,7 +113,9 @@ test("both milestones and their independent comparisons stay visible together", 
   const latest = page.locator("#comparison-single-entrypoint");
   const previous = page.locator("#comparison-direct-launch");
   await expect(page.locator("#run-count")).toHaveText("4");
-  await expect(page.locator("#comparisons h2")).toHaveText(["Skip redundant client compilation", "Direct CLI launches"]);
+  await expect(page.locator("#comparisons h2")).toHaveText([
+    "Skip Git cleanup on unchanged checkouts", "Skip redundant client compilation", "Direct CLI launches",
+  ]);
   await expect(latest.locator(".panel-heading p")).toContainText("2026-10-02 15:55 UTC");
   await expect(latest.locator(".panel-heading a")).toHaveAttribute("href", /\/pull\/46970$/);
   await expect(latest.locator(".comparison-row strong").first()).toHaveText("4m 30s \u2192 3m 00s");
@@ -135,24 +137,72 @@ test("both milestones and their independent comparisons stay visible together", 
   await expect(previous.locator(".comparison-row strong").first()).toHaveText("5m 00s \u2192 4m 00s");
   await page.reload();
   await expect(page.locator("#chart .milestone-label")).toHaveCount(2);
-  await expect(page.locator("#comparisons section")).toHaveCount(2);
+  await expect(page.locator("#comparisons section")).toHaveCount(3);
   await page.selectOption("#metric", "elapsed");
   await expect(latest.locator(".comparison-row strong").first()).toHaveText("30m 00s \u2192 30m 00s");
   await expect(previous.locator(".comparison-row strong").first()).toHaveText("30m 00s \u2192 30m 00s");
   await page.selectOption("#days", "7");
   await expect(page.locator("#chart .milestone-label")).toHaveText("Skip redundant client compilation merged");
   await expect(previous).toContainText("No runs on both sides of the merge");
-  await expect(page.locator("#comparisons section")).toHaveCount(2);
+  await expect(page.locator("#comparisons section")).toHaveCount(3);
 });
 
-test("existing milestone links preserve the metric without hiding either comparison", async ({ page }) => {
+test("cleanup milestone compares measured runs at the merge boundary across all metrics", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-14T12:00:00Z"));
+  const samples = [
+    ["2026-10-12T12:00:00Z", 1800],
+    ["2026-10-13T13:14:02Z", 1800],
+    ["2026-10-13T13:14:03Z", 1200],
+    ["2026-10-13T14:00:00Z", 1000],
+  ] as const;
+  const runs = samples.map(([createdAt, elapsed], index) => ({
+    ...baseRun, id: index + 1, createdAt,
+    jobs: jobs().map((job) => ({
+      ...job, startedAt: createdAt, completedAt: new Date(Date.parse(createdAt) + elapsed * 1000).toISOString(),
+      validation: elapsed - 100,
+    })),
+  }));
+  let collectedRuns = runs.slice(0, 2);
+  await page.route("**/data/workflow.json", (route) => route.fulfill({
+    json: { ...fixture, runs: collectedRuns },
+  }));
+  await page.goto("/?days=30&metric=elapsed&outcome=success&trend=daily");
+  const latest = page.locator("#comparison-skip-clean-checkout");
+  await expect(page.locator("#comparisons h2").first()).toHaveText("Skip Git cleanup on unchanged checkouts");
+  await expect(latest.locator(".panel-heading a")).toHaveAttribute("href", /\/pull\/46609$/);
+  await expect(latest).toContainText("No runs on both sides of the merge");
+  await expect(latest.locator(".change")).toHaveCount(0);
+  await expect(latest.locator(".comparison-row").first()).toContainText("2 before / 0 after");
+  const marker = page.locator("#chart .chart-event").filter({ hasText: "Skip Git cleanup on unchanged checkouts" });
+  await expect(marker).toHaveAttribute("href", /\/pull\/46609$/);
+  await expect(marker).toContainText("2026-10-13 13:14 UTC");
+
+  collectedRuns = runs;
+  await page.reload();
+  await expect(latest.locator(".comparison-row strong")).toHaveText([
+    "30m 00s \u2192 18m 20s", "30m 00s \u2192 18m 20s",
+  ]);
+  await expect(latest.locator(".comparison-row .change").first()).toHaveText("38.9% faster");
+  await expect(latest.locator(".comparison-row").first()).toContainText("2 before / 2 after");
+  for (const [metric, expected] of [
+    ["validation", "85m 00s \u2192 50m 00s"],
+    ["slowest", "28m 20s \u2192 16m 40s"],
+  ]) {
+    await page.selectOption("#metric", metric);
+    await expect(marker).toBeVisible();
+    await expect(latest.locator(".comparison-row strong")).toHaveText([expected, expected]);
+    await expect(page.locator("#comparisons section")).toHaveCount(3);
+  }
+});
+
+test("existing milestone links preserve the metric without hiding comparisons", async ({ page }) => {
   await page.route("**/data/workflow.json", (route) => route.fulfill({ json: fixture }));
   await page.goto("/?metric=elapsed&milestone=single-entrypoint");
   await expect(page.locator("#metric")).toHaveValue("elapsed");
   await expect(page.locator("#linux-median")).toHaveText("30m 00s");
   await expect(page.locator("#milestone")).toHaveCount(0);
   await expect(page).not.toHaveURL(/milestone=/);
-  await expect(page.locator("#comparisons section")).toHaveCount(2);
+  await expect(page.locator("#comparisons section")).toHaveCount(3);
   await expect(page.locator("#comparison-direct-launch")).toContainText("No runs on both sides of the merge");
 });
 
@@ -203,7 +253,7 @@ test("setup regression and fix markers explain completion overhead without chang
   await page.screenshot({ path: testInfo.outputPath("marker-key-desktop.png"), fullPage: true });
   await expect(page.locator("#setup-notice")).toBeVisible();
   await expect(page.locator("#setup-notice")).toContainText("not validation work");
-  await expect(page.locator("#comparisons section")).toHaveCount(2);
+  await expect(page.locator("#comparisons section")).toHaveCount(3);
   for (const metric of ["validation", "slowest"]) {
     await page.selectOption("#metric", metric);
     await expect(page.locator("#chart .milestone-label")).toHaveCount(2);

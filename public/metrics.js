@@ -13,6 +13,13 @@ export const milestones = [
     pr: 46970,
     url: "https://github.com/Azure/azure-rest-api-specs/pull/46970",
   },
+  {
+    id: "skip-clean-checkout",
+    time: "2026-10-13T13:14:03Z",
+    label: "Skip Git cleanup on unchanged checkouts",
+    pr: 46609,
+    url: "https://github.com/Azure/azure-rest-api-specs/pull/46609",
+  },
 ];
 
 export const setupMilestones = [
