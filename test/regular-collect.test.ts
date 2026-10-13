@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { zipSync, strToU8 } from "fflate";
-import { baseForRun, checkRunToJob, countsFromArchive, parseSpecCounts, summarizeRegular } from "../scripts/collect-regular.ts";
+import { baseForRun, checkRunToJob, countsFromArchive, needsCountRepair, parseSpecCounts, summarizeRegular } from "../scripts/collect-regular.ts";
 
 const timestamp = "2026-09-22T12:00:00.123Z";
 const log = (lines: string[]) => lines.map((line) => `${timestamp} ${line}`).join("\n");
@@ -19,17 +19,68 @@ test("count validated projects, excluding suppressed projects and duplicate outp
     "Running TypeSpecValidation on folder:  /repo/specification/a",
     "##[group]Validating specification/b",
     "Suppressed: temporarily disabled",
+    "##[group]Validating specification/c",
     "Running TypeSpecValidation on folder:  /repo/specification/c",
+  ])), { validated: 2, selected: 3, status: "available" });
+});
+test("intermediate Validating groups exclude whole-project suppression, not suppressed rules", () => {
+  assert.deepEqual(parseSpecCounts(log([
+    "Checking 3 TypeSpec folders:",
+    "##[group]Validating specification/a",
+    "10 passed | 2 skipped",
+    "##[endgroup]",
+    "##[group]Validating specification/b",
+    "Suppressed: whole project",
+    "##[endgroup]",
+    "::group::Validating specification/c",
+    "  Suppressed: one rule",
+    "9 passed | 1 suppressed",
+    "::endgroup::",
   ])), { validated: 2, selected: 3, status: "available" });
 });
 test("zero selected or entirely suppressed workloads are known zeroes", () => {
   assert.equal(parseSpecCounts(log(["Checking 0 TypeSpec folders:"])).validated, 0);
-  assert.equal(parseSpecCounts(log(["Checking 2 TypeSpec folders:", "Suppressed: reason"])).validated, 0);
+  assert.equal(parseSpecCounts(log(["Checking 2 TypeSpec folders:", "Suppressed: reason a", "Suppressed: reason b"])).validated, 0);
+  assert.deepEqual(parseSpecCounts(log(["No impacted TypeSpec projects found"])), {
+    validated: 0, selected: 0, status: "available",
+  });
+});
+test("current colored result groups count validated projects, not rules or suppressions", () => {
+  assert.deepEqual(parseSpecCounts(log([
+    "Checking 3 TypeSpec folders:",
+    "##[group]\u001b[32mpass\u001b[39m specification/a",
+    "Running TypeSpecValidation on folder: /repo/specification/a",
+    "10 passed | 2 skipped",
+    "##[group]pass specification/a",
+    "::group::fail specification/b",
+    "##[group]skip specification/c",
+    "Suppressed: disabled",
+    "2 passed | 1 suppressed",
+  ])), { validated: 2, selected: 3, status: "available" });
+  assert.deepEqual(parseSpecCounts(log([
+    "Checking 2 TypeSpec folders:", "##[group]skip specification/a", "##[group]skip specification/b",
+  ])), { validated: 0, selected: 2, status: "available" });
 });
 test("missing, contradictory, or changed log formats are not silently counted as zero", () => {
-  for (const lines of [[], ["Something went wrong"], ["Checking 0 TypeSpec folders:", "Running TypeSpecValidation on folder: a"], ["Checking 1 TypeSpec folders:", "Checking 1 TypeSpec folders:"]]) {
+  for (const lines of [
+    [], ["Something went wrong"],
+    ["Checking 0 TypeSpec folders:", "Running TypeSpecValidation on folder: a"],
+    ["Checking 1 TypeSpec folders:", "Checking 1 TypeSpec folders:"],
+    ["Checking 2 TypeSpec folders:", "Unexpected new result format"],
+    ["Checking 2 TypeSpec folders:", "##[group]skip specification/a"],
+    ["Checking 1 TypeSpec folders:", "##[group]pass specification/a", "##[group]skip specification/a"],
+    ["Checking 1 TypeSpec folders:", "##[group]pass specification/a", "##[group]fail specification/b"],
+  ]) {
     assert.deepEqual(parseSpecCounts(log(lines)), { validated: null, selected: null, status: "unrecognized-log" });
   }
+});
+test("cached false zeroes and old unrecognized logs are repaired without invalidating valid history", () => {
+  const counts = { validated: 0, selected: 8, status: "available" } as const;
+  assert.equal(needsCountRepair(counts), true);
+  assert.equal(needsCountRepair({ ...counts, parserVersion: 3 }), false);
+  assert.equal(needsCountRepair({ ...counts, selected: 0 }), false);
+  assert.equal(needsCountRepair({ ...counts, validated: 8 }), false);
+  assert.equal(needsCountRepair({ validated: null, selected: null, status: "unrecognized-log" }), true);
 });
 test("archive uses aggregate job log once, not duplicated per-step logs", () => {
   const text = log(["Checking 1 TypeSpec folders:", "Running TypeSpecValidation on folder: a"]);

@@ -8,21 +8,68 @@ import { api, graphql, listJobs, repository, request, runInfo, seconds, stepSeco
 const workflow = "typespec-validation.yaml";
 const output = fileURLToPath(new URL("../public/data/regular.json", import.meta.url));
 const day = 86_400_000;
+const specCountVersion = 3;
 type PullRequest = { number: number; baseRefName: string; headRefName: string; createdAt?: string; closedAt?: string | null };
 type Counts = {
   validated: number | null;
   selected: number | null;
   status: "available" | "pending" | "validation-not-run" | "logs-unavailable" | "unrecognized-log";
+  parserVersion?: number;
 };
 
 export function parseSpecCounts(text: string): Counts {
   const log = stripVTControlCharacters(text).replace(/^\uFEFF/, "");
   const selected = [...log.matchAll(/^\d{4}-[^\n]+Z Checking (\d+) TypeSpec folders:\s*$/gm)];
-  const projects = new Set([...log.matchAll(/^\d{4}-[^\n]+Z Running TypeSpecValidation on folder:\s+([^\n]+)$/gm)].map((match) => match[1].trim().replaceAll("\\", "/")));
-  if (selected.length !== 1 || projects.size > Number(selected[0][1])) {
-    return { validated: null, selected: null, status: "unrecognized-log" };
+  const unavailable: Counts = { validated: null, selected: null, status: "unrecognized-log" };
+  if (selected.length === 0 && /^\d{4}-[^\n]+Z No impacted TypeSpec projects found\s*$/m.test(log)) {
+    return { validated: 0, selected: 0, status: "available" };
   }
-  return { validated: projects.size, selected: Number(selected[0][1]), status: "available" };
+  if (selected.length !== 1) return unavailable;
+  const total = Number(selected[0][1]);
+  const groups = [...log.matchAll(/^\d{4}-[^\n]+Z (?:##\[group\]|::group::)(pass|fail|skip) ([^\n]+)$/gm)];
+  if (groups.length) {
+    const validated = new Set<string>();
+    const skipped = new Set<string>();
+    for (const [, status, path] of groups) {
+      (status === "skip" ? skipped : validated).add(path.trim().replaceAll("\\", "/"));
+    }
+    if (validated.size + skipped.size > total || [...skipped].some((path) => validated.has(path)) ||
+      (validated.size === 0 && skipped.size !== total)) return unavailable;
+    return { validated: validated.size, selected: total, status: "available" };
+  }
+  const legacyGroups = new Map<string, boolean>();
+  let activeProject: string | undefined;
+  for (const line of log.split("\n")) {
+    const content = line.replace(/^\d{4}-\S+Z /, "").trimEnd();
+    const group = /^(?:##\[group\]|::group::)Validating (.+)$/.exec(content);
+    if (group) {
+      activeProject = group[1].trim().replaceAll("\\", "/");
+      legacyGroups.set(activeProject, true);
+    } else if (/^(?:##\[group\]|::group::|##\[endgroup\]|::endgroup::)/.test(content)) {
+      activeProject = undefined;
+    } else if (activeProject && content.startsWith("Suppressed:")) {
+      legacyGroups.set(activeProject, false);
+    } else if (activeProject && content.startsWith("Dry run:")) {
+      return unavailable;
+    }
+  }
+  if (legacyGroups.size) {
+    const validated = [...legacyGroups.values()].filter(Boolean).length;
+    if (legacyGroups.size > total || (validated === 0 && legacyGroups.size !== total)) return unavailable;
+    return { validated, selected: total, status: "available" };
+  }
+  const projects = new Set([...log.matchAll(/^\d{4}-[^\n]+Z Running TypeSpecValidation on folder:\s+([^\n]+)$/gm)].map((match) => match[1].trim().replaceAll("\\", "/")));
+  const suppressions = [...log.matchAll(/^\d{4}-[^\n]+Z Suppressed:[^\n]+$/gm)];
+  if (projects.size > total || (total > 0 && projects.size === 0 && suppressions.length !== total)) {
+    return unavailable;
+  }
+  return { validated: projects.size, selected: total, status: "available" };
+}
+
+export function needsCountRepair(counts: Counts) {
+  return counts.parserVersion !== specCountVersion &&
+    (counts.status === "unrecognized-log" ||
+      (counts.status === "available" && counts.selected !== null && counts.selected > 0 && counts.validated === 0));
 }
 
 export function countsFromArchive(archive: Uint8Array): Counts {
@@ -51,7 +98,7 @@ export function summarizeRegular(run: ApiRun, jobs: ApiJob[], pulls: number[], s
     ...runInfo(run),
     baseBranch: "main",
     pullRequests: pulls,
-    specs,
+    specs: { ...specs, parserVersion: specCountVersion },
     jobs: relevant.map((job) => ({
       id: job.id, url: job.html_url, status: job.status, conclusion: job.conclusion,
       startedAt: job.started_at, completedAt: job.completed_at,
@@ -162,15 +209,19 @@ async function specCounts(run: ApiRun, jobs: ApiJob[]): Promise<Counts> {
   if (run.status !== "completed") return { ...empty, status: "pending" };
   const step = jobs.find((job) => job.name === "TypeSpec Validation")?.steps.find((step) => step.name === "Validate Impacted Specs");
   if (!step || step.conclusion === "skipped" || !step.started_at) return { ...empty, status: "validation-not-run" };
-  const response = await request(`repos/${repository}/actions/runs/${run.id}/attempts/${run.run_attempt}/logs`);
+  return downloadSpecCounts(run.id, run.run_attempt);
+}
+
+async function downloadSpecCounts(id: number, attempt: number): Promise<Counts> {
+  const response = await request(`repos/${repository}/actions/runs/${id}/attempts/${attempt}/logs`);
   if (response.status === 404 || response.status === 410) {
-    console.warn(`Log archive unavailable (${response.status}) for regular TSV run ${run.id}.`);
+    console.warn(`Log archive unavailable (${response.status}) for regular TSV run ${id}.`);
     await response.body?.cancel();
-    return { ...empty, status: "logs-unavailable" };
+    return { validated: null, selected: null, status: "logs-unavailable" };
   }
-  if (!response.ok) throw new Error(`Log download for ${run.id}: HTTP ${response.status}: ${await response.text()}`);
+  if (!response.ok) throw new Error(`Log download for ${id}: HTTP ${response.status}: ${await response.text()}`);
   const counts = countsFromArchive(new Uint8Array(await response.arrayBuffer()));
-  if (counts.status !== "available") console.warn(`Project count unavailable for regular TSV run ${run.id}: ${counts.status}`);
+  if (counts.status !== "available") console.warn(`Project count unavailable for regular TSV run ${id}: ${counts.status}`);
   return counts;
 }
 
@@ -236,6 +287,15 @@ export async function collectRegular(days: number | null, now: Date) {
       completed++;
       if (completed % 100 === 0) console.log(`Regular TSV: collected ${completed}/${main.length} runs.`);
     }));
+  }
+  const repairs = [...saved.values()].filter((run) => run.status === "completed" && needsCountRepair(run.specs));
+  console.log(`Regular TSV: repairing project counts for ${repairs.length} cached runs, including older history.`);
+  for (let offset = 0; offset < repairs.length; offset += 8) {
+    await Promise.all(repairs.slice(offset, offset + 8).map(async (run) => {
+      const counts = await downloadSpecCounts(run.id, run.attempt);
+      saved.set(run.id, { ...run, specs: { ...counts, parserVersion: specCountVersion } });
+    }));
+    if (offset % 100 === 0) console.log(`Regular TSV: repaired ${Math.min(offset + 8, repairs.length)}/${repairs.length} runs.`);
   }
   const dataset: Dataset = {
     schemaVersion: 1, repository, workflow, generatedAt: now.toISOString(),

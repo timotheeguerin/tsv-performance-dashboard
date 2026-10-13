@@ -16,6 +16,7 @@ const fixture = {
     { ...base, id: 3, jobs: [{ ...base.jobs[0], elapsed: 120, validation: 5 }], specs: { ...base.specs, selected: 0, validated: 0 } },
     { ...base, id: 4, jobs: [{ ...base.jobs[0], elapsed: 300 }], specs: { status: "logs-unavailable", selected: null, validated: null } },
     { ...base, id: 5, baseBranch: "typespec-next" },
+    { ...base, id: 6, jobs: [{ ...base.jobs[0], validation: 3000 }], specs: { ...base.specs, selected: 500, validated: 500 } },
   ],
 };
 
@@ -24,16 +25,28 @@ test("regular dashboard shows only validation timing, its average, and actual va
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/data/regular.json", (route) => route.fulfill({ json: fixture }));
   await page.goto("/regular.html");
-  await expect(page.locator("#run-count")).toHaveText("4 runs in view");
-  await expect(page.locator("#validation-median")).toHaveText("1m 00s");
+  await expect(page.locator("#workload")).toHaveValue("pr-sized");
+  await expect(page.locator("#run-count")).toHaveText("2 runs in view");
+  await expect(page.locator("#validation-median")).toHaveText("2m 00s");
   await expect(page.locator("#validation-average")).toHaveText("40.0s");
   await expect(page.locator("#total-median, #total-average, #total-chart")).toHaveCount(0);
   await expect(page.locator(".cards .card")).toHaveCount(3);
   await expect(page.locator("#spec-count")).toHaveText("6");
-  await expect(page.locator("#count-notice")).toContainText("1 run has unavailable");
-  await expect(page.locator("#validation-chart circle")).toHaveCount(4);
+  await expect(page.locator("#count-notice")).toBeHidden();
+  await expect(page.locator("#validation-chart circle")).toHaveCount(2);
   await expect(page.locator("#average-chart circle")).toHaveCount(2);
-  await expect(page.locator("#count-chart circle")).toHaveCount(3);
+  await expect(page.locator("#count-chart circle")).toHaveCount(2);
+  await page.selectOption("#workload", "all");
+  await expect(page.locator("#run-count")).toHaveText("5 runs in view");
+  await expect(page.locator("#spec-count")).toHaveText("506");
+  await expect(page.locator("#count-notice")).toContainText("1 run has unavailable");
+  await expect(page.locator("#validation-chart circle")).toHaveCount(5);
+  await page.selectOption("#workload", "repository-sized");
+  await expect(page.locator("#run-count")).toHaveText("1 run in view");
+  await expect(page.locator("#validation-median")).toHaveText("50m 00s");
+  await expect(page.locator("#validation-average")).toHaveText("6.0s");
+  await page.reload();
+  await expect(page.locator("#workload")).toHaveValue("repository-sized");
   await page.selectOption("#workload", "zero");
   await expect(page.locator("#run-count")).toHaveText("1 run in view");
   await expect(page.locator("#validation-average")).toHaveText("\u2014");
@@ -42,6 +55,8 @@ test("regular dashboard shows only validation timing, its average, and actual va
   await page.reload();
   await expect(page.locator("#workload")).toHaveValue("zero");
   await page.selectOption("#workload", "with-specs");
+  await expect(page.locator("#run-count")).toHaveText("3 runs in view");
+  await page.selectOption("#workload", "pr-sized");
   await expect(page.locator("#run-count")).toHaveText("2 runs in view");
   await page.locator("#runs summary").first().click();
   await expect(page.locator("#runs details").first().locator("th")).toHaveText(["Validation step", "Validation / spec"]);

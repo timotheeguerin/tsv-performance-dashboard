@@ -53,6 +53,16 @@ test("workload and outcome filters distinguish zero, unknown, and failed runs", 
   assert.equal(selectRegularRuns([failed], options).length, 0);
   assert.equal(selectRegularRuns([failed], { ...options, outcome: "all" }).length, 1);
 });
+test("PR-sized and repository-sized workloads split at 500 actually validated projects", () => {
+  const runs = [0, 1, 499, 500, 608].map((validated) => run({
+    specs: { status: "available", validated, selected: 608 },
+  }));
+  runs.push(run({ specs: { status: "logs-unavailable", validated: null, selected: 608 } }));
+  assert.deepEqual(selectRegularRuns(runs, { ...options, workload: "pr-sized" }).map((run) => run.specCount), [1, 499]);
+  assert.deepEqual(selectRegularRuns(runs, { ...options, workload: "repository-sized" }).map((run) => run.specCount), [500, 608]);
+  assert.equal(selectRegularRuns(runs, { ...options, workload: "with-specs" }).length, 4);
+  assert.equal(selectRegularRuns(runs, options).length, 6);
+});
 test("aggregate averages divide sums; zero-spec overhead and missing counts are excluded", () => {
   const runs = [
     { specCount: 1, validation: 10 },

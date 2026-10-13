@@ -145,7 +145,11 @@ export function selectRegularRuns(runs, { days, outcome, workload }, now = Date.
       };
     })
     .filter((run) => (outcome === "all" || run.selectedConclusion === "success") &&
-      (workload === "all" || (workload === "with-specs" ? run.specCount > 0 : run.specCount === 0)))
+      (workload === "all" ||
+        (workload === "with-specs" && run.specCount > 0) ||
+        (workload === "pr-sized" && run.specCount > 0 && run.specCount < 500) ||
+        (workload === "repository-sized" && run.specCount >= 500) ||
+        (workload === "zero" && run.specCount === 0)))
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 

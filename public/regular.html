@@ -40,6 +40,8 @@
         </label>
         <label>Workload
           <select id="workload">
+            <option value="pr-sized" selected>PR-sized: 1-499 validated specs</option>
+            <option value="repository-sized">Repository-sized: 500+ validated specs</option>
             <option value="all">All runs, including zero specs</option>
             <option value="with-specs">At least one validated spec</option>
             <option value="zero">Zero validated specs</option>
@@ -52,6 +54,7 @@
           </select>
         </label>
       </section>
+      <p class="footnote">Workload groups use actual validated project counts, not an inferred trigger. PR-sized runs exclude zero-spec and repository-sized runs; project size and tooling revisions can still vary.</p>
       <section class="cards" aria-label="Summary">
         <article class="card"><p>MEDIAN VALIDATION TIME</p><strong id="validation-median">--</strong><small id="run-count">Across selected runs</small></article>
         <article class="card"><p>AVG VALIDATION / SPEC</p><strong id="validation-average">--</strong><small>Validation time / validated specs</small></article>
