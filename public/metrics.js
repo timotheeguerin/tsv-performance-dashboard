@@ -20,6 +20,13 @@ export const milestones = [
     pr: 46609,
     url: "https://github.com/Azure/azure-rest-api-specs/pull/46609",
   },
+  {
+    id: "in-process-compiler",
+    time: "2026-10-27T14:22:14Z",
+    label: "In-process TypeSpec compile and format",
+    pr: 47004,
+    url: "https://github.com/Azure/azure-rest-api-specs/pull/47004",
+  },
 ];
 
 export const setupMilestones = [
