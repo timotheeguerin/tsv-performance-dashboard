@@ -27,6 +27,20 @@ export const milestones = [
     pr: 47004,
     url: "https://github.com/Azure/azure-rest-api-specs/pull/47004",
   },
+  {
+    id: "check-only-validation",
+    time: "2026-11-10T14:48:28Z",
+    label: "Check-only batch validation",
+    pr: 47905,
+    url: "https://github.com/Azure/azure-rest-api-specs/pull/47905",
+  },
+  {
+    id: "parallel-batch-validation",
+    time: "2026-11-16T14:06:21Z",
+    label: "Parallel batch validation",
+    pr: 47878,
+    url: "https://github.com/Azure/azure-rest-api-specs/pull/47878",
+  },
 ];
 
 export const setupMilestones = [
